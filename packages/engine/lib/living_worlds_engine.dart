@@ -31,6 +31,7 @@ export 'src/model/world_schema.dart';
 export 'src/projection/projection.dart';
 export 'src/repo/in_memory_repository.dart';
 export 'src/repo/local_repository.dart';
+export 'src/repo/remote_repository.dart';
 export 'src/repo/world_repository.dart';
 export 'src/retrieval/cosine.dart';
 export 'src/retrieval/embedding_client.dart';

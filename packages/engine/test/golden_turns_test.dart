@@ -180,7 +180,7 @@ void main() {
   });
 
   test('cost log records fixture usage per turn (§10)', () async {
-    final (controller, _, __) = await harness([calmTurn(), calmTurn()]);
+    final (controller, _, _) = await harness([calmTurn(), calmTurn()]);
     await controller.playTurn(actorId: 'ash', userInput: 'a');
     await controller.playTurn(actorId: 'ash', userInput: 'b');
     final agg = controller.costLog.aggregate(worldId: 'world-1');

@@ -216,7 +216,7 @@ void main() {
             'title': 'The Gullet',
             'category': 'Places',
             'body': 'v2 with a guard rotation',
-            'tags': [],
+            'tags': <String>[],
           }
         }),
       ]);
@@ -230,8 +230,9 @@ void main() {
     });
 
     test('accepting a non-proposal throws', () async {
-      final llm = FixtureLlmClient(
-          completions: [jsonEncode({'action': 'chat', 'message': 'hi'})]);
+      final llm = FixtureLlmClient(completions: [
+        jsonEncode(<String, Object?>{'action': 'chat', 'message': 'hi'})
+      ]);
       final session = SeedingSession(
           repo: repo, llm: llm, worldId: 'world-1', clock: fixedClock());
       final chat = await session.send('hello');
