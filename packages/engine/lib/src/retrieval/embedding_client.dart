@@ -32,8 +32,8 @@ class FixtureEmbeddingClient implements EmbeddingClient {
     final lower = text.toLowerCase();
     for (var i = 0; i + 3 <= lower.length; i++) {
       final tri = lower.substring(i, i + 3);
-      final h = SplitMix64(tri.codeUnits.fold(17, (a, c) => a * 31 + c))
-          .nextInt64();
+      final h =
+          SplitMix64(tri.codeUnits.fold(17, (a, c) => a * 31 + c)).nextInt64();
       v[(h & 0x7FFFFFFFFFFFFFFF) % dims] += 1;
     }
     // L2 normalize.

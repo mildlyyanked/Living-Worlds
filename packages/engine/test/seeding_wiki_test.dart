@@ -34,10 +34,10 @@ void main() {
       expect(p.wiki['wiki-gullet']!.body, contains('tide schedule'));
 
       final events = await repo.eventsUpTo(-1);
-      expect(events.where((e) => e.type == EventType.wikiCreated),
-          hasLength(1));
-      expect(events.where((e) => e.type == EventType.wikiUpdated),
-          hasLength(1));
+      expect(
+          events.where((e) => e.type == EventType.wikiCreated), hasLength(1));
+      expect(
+          events.where((e) => e.type == EventType.wikiUpdated), hasLength(1));
 
       // Undo the update -> v1 body restored.
       final updateSeq =
@@ -137,8 +137,7 @@ void main() {
       expect(after.wiki['wiki-gullet']!.body, contains('edited by the player'));
     });
 
-    test('rejection clears the candidate without touching the wiki',
-        () async {
+    test('rejection clears the candidate without touching the wiki', () async {
       final candId = await queueCandidate();
       await service.rejectCandidate('world-1', candId);
       final after = await repo.projection();

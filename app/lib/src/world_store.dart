@@ -27,11 +27,7 @@ class ChatItem {
 }
 
 class WorldStore extends ChangeNotifier {
-  WorldStore({
-    required this.services,
-    required this.ref,
-    required this.repo,
-  });
+  WorldStore({required this.services, required this.ref, required this.repo});
 
   final AppServices services;
   final WorldRef ref;
@@ -44,19 +40,23 @@ class WorldStore extends ChangeNotifier {
 
   static Future<WorldStore> open(AppServices services, WorldRef ref) async {
     final store = WorldStore(
-        services: services, ref: ref, repo: await services.openRepo(ref));
+      services: services,
+      ref: ref,
+      repo: await services.openRepo(ref),
+    );
     await store.refresh();
     return store;
   }
 
   TurnController _controller() => TurnController(
-        repo: repo,
-        llm: services.buildLlm(),
-        embedder: services.buildEmbedder(),
-        assembler: ContextAssembler(
-            budgetTokens: services.settings.contextBudgetTokens),
-        costLog: costLog,
-      );
+    repo: repo,
+    llm: services.buildLlm(),
+    embedder: services.buildEmbedder(),
+    assembler: ContextAssembler(
+      budgetTokens: services.settings.contextBudgetTokens,
+    ),
+    costLog: costLog,
+  );
 
   WorldService get worldService => WorldService(repo);
 
@@ -86,13 +86,15 @@ class WorldStore extends ChangeNotifier {
     if (p == null) return const [];
     final items = <ChatItem>[];
     for (final t in p.turnsFor(characterId)) {
-      items.add(ChatItem(
-        userInput: t.userInput,
-        narrative: t.narrative,
-        notifications: const [],
-        report: null,
-        turnSeq: t.seq,
-      ));
+      items.add(
+        ChatItem(
+          userInput: t.userInput,
+          narrative: t.narrative,
+          notifications: const [],
+          report: null,
+          turnSeq: t.seq,
+        ),
+      );
     }
     return items;
   }
@@ -113,22 +115,22 @@ class WorldStore extends ChangeNotifier {
     required String actorId,
     required String input,
     List<String> presentCharacterIds = const [],
-  }) =>
-      _guard(() => _controller().playTurn(
-            actorId: actorId,
-            userInput: input,
-            presentCharacterIds: presentCharacterIds,
-          ));
+  }) => _guard(
+    () => _controller().playTurn(
+      actorId: actorId,
+      userInput: input,
+      presentCharacterIds: presentCharacterIds,
+    ),
+  );
 
   Future<TimeSkipResult?> timeSkip({
     required String characterId,
     required TimeSkipTarget target,
-  }) =>
-      _guard(() => TimeSkipGenerator(repo).run(
-            characterId: characterId,
-            target: target,
-            llm: services.buildLlm(),
-          ));
+  }) => _guard(
+    () => TimeSkipGenerator(
+      repo,
+    ).run(characterId: characterId, target: target, llm: services.buildLlm()),
+  );
 
   Future<void> undoToSeq(int seq) async {
     await _guard(() => repo.revertAfter(seq));
@@ -155,6 +157,6 @@ class WorldStore extends ChangeNotifier {
   }
 
   /// Seeding session bound to this world (§5.1).
-  SeedingSession newSeedingSession() => SeedingSession(
-      repo: repo, llm: services.buildLlm(), worldId: ref.id);
+  SeedingSession newSeedingSession() =>
+      SeedingSession(repo: repo, llm: services.buildLlm(), worldId: ref.id);
 }

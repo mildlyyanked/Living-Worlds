@@ -92,9 +92,7 @@ void main() {
         final r = engine.runTurn(
           projection: p,
           input: TurnInput(
-              actorId: 'ash',
-              userInput: 'chaos',
-              output: randomOutput(rng)),
+              actorId: 'ash', userInput: 'chaos', output: randomOutput(rng)),
           now: t0,
         );
         await repo.appendEvents(r.events);
@@ -133,8 +131,7 @@ void main() {
         // Clock never regresses and respects the cap.
         final a2 = after.characters['ash']!;
         expect(a2.subjectiveClock, greaterThanOrEqualTo(actor.subjectiveClock));
-        expect(
-            a2.subjectiveClock - actor.subjectiveClock,
+        expect(a2.subjectiveClock - actor.subjectiveClock,
             lessThanOrEqualTo(const EngineConfig().perTurnCapMinutes));
 
         // Live fold == full replay.
@@ -174,9 +171,7 @@ void main() {
           final r = engine.runTurn(
             projection: p,
             input: TurnInput(
-                actorId: 'ash',
-                userInput: 'chaos',
-                output: randomOutput(rng)),
+                actorId: 'ash', userInput: 'chaos', output: randomOutput(rng)),
             now: t0,
           );
           deaths.add(r.died);

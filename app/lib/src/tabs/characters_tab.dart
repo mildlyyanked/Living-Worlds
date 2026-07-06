@@ -20,9 +20,11 @@ class CharactersTab extends StatelessWidget {
       final choice = await showDialog<TimeSkipTarget?>(
         context: context,
         builder: (context) => SimpleDialog(
-          title: Text('${c.name} is behind the world clock '
-              '(${formatClock(c.subjectiveClock)} vs '
-              '${formatClock(p.worldClock)})'),
+          title: Text(
+            '${c.name} is behind the world clock '
+            '(${formatClock(c.subjectiveClock)} vs '
+            '${formatClock(p.worldClock)})',
+          ),
           children: [
             SimpleDialogOption(
               key: const Key('skip-shared'),
@@ -45,20 +47,23 @@ class CharactersTab extends StatelessWidget {
         ),
       );
       if (choice != null) {
-        final result =
-            await store.timeSkip(characterId: c.id, target: choice);
+        final result = await store.timeSkip(characterId: c.id, target: choice);
         if (result != null && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Time skip: ${result.summary}'),
-            duration: const Duration(seconds: 5),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Time skip: ${result.summary}'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
         }
       }
     }
     if (!context.mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => GameplayScreen(store: store, characterId: c.id),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GameplayScreen(store: store, characterId: c.id),
+      ),
+    );
   }
 
   Future<void> _newCharacter(BuildContext context) async {
@@ -69,13 +74,15 @@ class CharactersTab extends StatelessWidget {
     if (name == null || name.isEmpty) return;
     final id = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
     if (store.projection!.characters.containsKey(id)) return;
-    await store.worldService.createCharacter(Character(
-      id: id,
-      worldId: store.ref.id,
-      name: name,
-      bio: 'A newcomer to ${store.ref.name}.',
-      stats: const {'vitality': 100, 'hunger': 0, 'fatigue': 0, 'coin': 10},
-    ));
+    await store.worldService.createCharacter(
+      Character(
+        id: id,
+        worldId: store.ref.id,
+        name: name,
+        bio: 'A newcomer to ${store.ref.name}.',
+        stats: const {'vitality': 100, 'hunger': 0, 'fatigue': 0, 'coin': 10},
+      ),
+    );
     await store.refresh();
   }
 
@@ -93,24 +100,25 @@ class CharactersTab extends StatelessWidget {
         label: const Text('New character'),
       ),
       body: ListView(
-      children: [
-        for (final c in characters)
-          ListTile(
-            key: Key('character-${c.id}'),
-            leading: CircleAvatar(
-              child: Text(c.name.isEmpty ? '?' : c.name[0]),
-            ),
-            title: Text(c.name + (c.alive ? '' : ' †')),
-            subtitle: Text(
+        children: [
+          for (final c in characters)
+            ListTile(
+              key: Key('character-${c.id}'),
+              leading: CircleAvatar(
+                child: Text(c.name.isEmpty ? '?' : c.name[0]),
+              ),
+              title: Text(c.name + (c.alive ? '' : ' †')),
+              subtitle: Text(
                 '${formatClock(c.subjectiveClock)} · health '
                 '${healthOf(c, schema, const EngineConfig()).round()}/100'
-                '${c.status.isNotEmpty ? ' · ${c.status.map((s) => s.key).join(', ')}' : ''}'),
-            trailing: c.alive
-                ? const Icon(Icons.play_arrow)
-                : const Icon(Icons.block),
-            onTap: c.alive ? () => _openCharacter(context, c) : null,
-          ),
-      ],
+                '${c.status.isNotEmpty ? ' · ${c.status.map((s) => s.key).join(', ')}' : ''}',
+              ),
+              trailing: c.alive
+                  ? const Icon(Icons.play_arrow)
+                  : const Icon(Icons.block),
+              onTap: c.alive ? () => _openCharacter(context, c) : null,
+            ),
+        ],
       ),
     );
   }
@@ -144,8 +152,9 @@ class _NewCharacterDialogState extends State<_NewCharacterDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           key: const Key('create-character'),
           onPressed: () => Navigator.pop(context, _name.text.trim()),

@@ -42,8 +42,7 @@ void main() {
       expect(snap.character.name, 'Brynn');
       expect(snap.viewerClock, 120);
       expect(snap.asOfClock, 0);
-      expect(snap.stale, isTrue,
-          reason: 'B has not lived to minute 120 yet');
+      expect(snap.stale, isTrue, reason: 'B has not lived to minute 120 yet');
       expect(snap.toContextBlock(), contains('fixed canon'));
     });
 
@@ -74,8 +73,7 @@ void main() {
   });
 
   group('SharedEvent canon (§4.4)', () {
-    test('one event lands on both timelines at the writer\'s clock',
-        () async {
+    test('one event lands on both timelines at the writer\'s clock', () async {
       await advance('ash', 100);
       final p = await repo.projection();
       final e = await rendezvous.commitSharedEvent(
@@ -93,7 +91,8 @@ void main() {
           contains('split the vault haul'));
     });
 
-    test('immutable: no API mutates a committed SharedEvent; undo is the '
+    test(
+        'immutable: no API mutates a committed SharedEvent; undo is the '
         'only recourse', () async {
       await advance('ash', 100);
       var p = await repo.projection();
@@ -173,7 +172,8 @@ void main() {
           reason: 'canon must never be dropped by the budget');
     });
 
-    test('contradiction: second writer cannot overwrite existing canon — '
+    test(
+        'contradiction: second writer cannot overwrite existing canon — '
         'the first SharedEvent stands', () async {
       await advance('ash', 100);
       var p = await repo.projection();
@@ -207,8 +207,8 @@ void main() {
       await repo.revertAfter(second.seq - 1);
       p = await repo.projection();
       expect(p.sharedEventsFor('brynn'), hasLength(1));
-      expect(p.sharedEventsFor('brynn').first.summary,
-          'They parted as allies.');
+      expect(
+          p.sharedEventsFor('brynn').first.summary, 'They parted as allies.');
     });
   });
 }

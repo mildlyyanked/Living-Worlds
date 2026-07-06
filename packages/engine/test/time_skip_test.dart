@@ -82,8 +82,8 @@ void main() {
     );
     final p = await repo.projection();
     final gen = TimeSkipGenerator(repo, clock: fixedClock());
-    final prompt = gen.buildPrompt(
-        projection: p, characterId: 'brynn', targetClock: 150);
+    final prompt =
+        gen.buildPrompt(projection: p, characterId: 'brynn', targetClock: 150);
     expect(prompt, contains('FIXED CANON'));
     expect(prompt, contains('north road'));
     expect(prompt, contains('minute 0 and minute 150'));
@@ -192,8 +192,7 @@ void main() {
     final replayed = WorldProjection.replay(events);
     expect(jsonEncode(replayed.toJson()), jsonEncode(live.toJson()));
 
-    final skipEvent =
-        events.firstWhere((e) => e.type == EventType.timeSkip);
+    final skipEvent = events.firstWhere((e) => e.type == EventType.timeSkip);
     replayed.applyEvent(skipEvent); // apply twice
     expect(jsonEncode(replayed.toJson()), jsonEncode(live.toJson()));
   });

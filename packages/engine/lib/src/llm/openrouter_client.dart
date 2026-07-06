@@ -116,8 +116,7 @@ class OpenRouterLlmClient implements LlmClient {
       );
       latencyMs += DateTime.now().difference(started).inMilliseconds;
       if (resp.statusCode != 200) {
-        throw LlmException(
-            'OpenRouter ${resp.statusCode}: ${resp.body}');
+        throw LlmException('OpenRouter ${resp.statusCode}: ${resp.body}');
       }
       final json = jsonDecode(resp.body) as Map<String, Object?>;
       final usage = json['usage'] as Map<String, Object?>? ?? const {};
@@ -242,12 +241,10 @@ class OpenRouterEmbeddingClient implements EmbeddingClient {
       throw LlmException('embeddings ${resp.statusCode}: ${resp.body}');
     }
     final json = jsonDecode(resp.body) as Map<String, Object?>;
-    _lastTokens = ((json['usage'] as Map<String, Object?>?)?['total_tokens']
-                as num? ??
-            0)
-        .toInt();
-    final data =
-        (json['data'] as List<Object?>).first! as Map<String, Object?>;
+    _lastTokens =
+        ((json['usage'] as Map<String, Object?>?)?['total_tokens'] as num? ?? 0)
+            .toInt();
+    final data = (json['data'] as List<Object?>).first! as Map<String, Object?>;
     return [
       for (final v in data['embedding'] as List<Object?>) (v! as num).toDouble()
     ];

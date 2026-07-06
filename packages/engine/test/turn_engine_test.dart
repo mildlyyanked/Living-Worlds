@@ -77,8 +77,7 @@ void main() {
           const TurnOutput(
             narrative: 'You give away keys.',
             proposedDeltas: ProposedDeltas(inventory: [
-              InventoryOp(
-                  op: InventoryOpKind.remove, item: 'rusty key', qty: 2)
+              InventoryOp(op: InventoryOpKind.remove, item: 'rusty key', qty: 2)
             ]),
           ));
       expect(decisionFor(r, 'inventory').outcome, DeltaOutcome.rejected);
@@ -99,9 +98,7 @@ void main() {
               status: [
                 StatusOp(op: StatusOpKind.add, key: 'bleeding', severity: 2)
               ],
-              stats: [
-                StatOp(key: 'fatigue', op: StatOpKind.set, value: 50)
-              ],
+              stats: [StatOp(key: 'fatigue', op: StatOpKind.set, value: 50)],
             ),
             peril: true,
           ));
@@ -147,8 +144,9 @@ void main() {
           p,
           const TurnOutput(
             narrative: 'x',
-            proposedDeltas: ProposedDeltas(
-                stats: [StatOp(key: 'charisma', op: StatOpKind.delta, value: 5)]),
+            proposedDeltas: ProposedDeltas(stats: [
+              StatOp(key: 'charisma', op: StatOpKind.delta, value: 5)
+            ]),
           ));
       expect(decisionFor(r, 'stats').outcome, DeltaOutcome.rejected);
     });
@@ -197,10 +195,8 @@ void main() {
               StatusOp(op: StatusOpKind.remove, key: 'bleeding'),
             ]),
           ));
-      expect(decisionFor(r, 'status', index: 0).outcome,
-          DeltaOutcome.rejected);
-      expect(decisionFor(r, 'status', index: 1).outcome,
-          DeltaOutcome.rejected);
+      expect(decisionFor(r, 'status', index: 0).outcome, DeltaOutcome.rejected);
+      expect(decisionFor(r, 'status', index: 1).outcome, DeltaOutcome.rejected);
     });
 
     test('harmful status add marks peril_delta_applied', () async {
@@ -292,8 +288,7 @@ void main() {
       expect(decisionFor(r1, 'quest').outcome, DeltaOutcome.accepted);
       await repo.appendEvents(r1.events);
       p = await repo.projection();
-      expect(
-          p.characters['ash']!.questById('q-map')!.steps.first.done, isTrue);
+      expect(p.characters['ash']!.questById('q-map')!.steps.first.done, isTrue);
 
       final r2 = run(
           p,
@@ -310,8 +305,8 @@ void main() {
       // Rewards: lantern + 25 coin.
       expect(p.characters['ash']!.qtyOfDef('item-lantern'), 1);
       expect(p.characters['ash']!.stats['coin'], 35);
-      expect(r2.notifications,
-          contains('Quest complete: Map the Sunken Vault'));
+      expect(
+          r2.notifications, contains('Quest complete: Map the Sunken Vault'));
     });
 
     test('complete with steps undone is rejected', () async {
@@ -320,9 +315,8 @@ void main() {
           p,
           const TurnOutput(
             narrative: 'Done, surely?',
-            proposedDeltas: ProposedDeltas(quest: [
-              QuestOp(questId: 'q-map', op: QuestOpKind.complete)
-            ]),
+            proposedDeltas: ProposedDeltas(
+                quest: [QuestOp(questId: 'q-map', op: QuestOpKind.complete)]),
           ));
       expect(decisionFor(r, 'quest').outcome, DeltaOutcome.rejected);
       expect(decisionFor(r, 'quest').reason, contains('steps remain'));
@@ -348,7 +342,8 @@ void main() {
           const TurnOutput(
             narrative: 'x',
             proposedDeltas: ProposedDeltas(quest: [
-              QuestOp(questId: 'q-nope', op: QuestOpKind.progress, stepId: 's1'),
+              QuestOp(
+                  questId: 'q-nope', op: QuestOpKind.progress, stepId: 's1'),
               QuestOp(questId: 'q-map', op: QuestOpKind.progress, stepId: 's9'),
               QuestOp(questId: 'q-map', op: QuestOpKind.progress, stepId: 's1'),
             ]),
@@ -361,8 +356,7 @@ void main() {
   });
 
   group('relationships (§4.5)', () {
-    test('delta applies to directed edge and clamps to schema range',
-        () async {
+    test('delta applies to directed edge and clamps to schema range', () async {
       final p = await freshProjection();
       final r = run(
           p,
@@ -375,8 +369,8 @@ void main() {
       final d = decisionFor(r, 'relationships');
       expect(d.outcome, DeltaOutcome.clamped);
       expect(d.to, 10); // schema max
-      final e = r.events
-          .firstWhere((e) => e.type == EventType.relationshipChanged);
+      final e =
+          r.events.firstWhere((e) => e.type == EventType.relationshipChanged);
       expect(e.payload['from_char'], 'ash');
       expect(e.payload['to_char'], 'brynn');
       expect(e.payload['to'], 10);
@@ -434,8 +428,7 @@ void main() {
       expect(r.events.last.type, EventType.characterDied);
     });
 
-    test('non-lethal mode suppresses instant trigger, keeps status',
-        () async {
+    test('non-lethal mode suppresses instant trigger, keeps status', () async {
       final p = await freshProjection();
       final r = run(
           p,
@@ -476,8 +469,7 @@ void main() {
   });
 
   group('turn mechanics', () {
-    test('TurnCommitted leads, carries debug report, clock from/to',
-        () async {
+    test('TurnCommitted leads, carries debug report, clock from/to', () async {
       final p = await freshProjection();
       final r = run(p, calmTurn(minutes: 45));
       final first = r.events.first;
@@ -502,10 +494,10 @@ void main() {
                   body: 'A drowned smuggling tunnel.')
             ],
           ));
-      final e = r.events
-          .firstWhere((e) => e.type == EventType.wikiCandidateQueued);
-      final cand =
-          WikiCandidate.fromJson(e.payload['candidate'] as Map<String, Object?>);
+      final e =
+          r.events.firstWhere((e) => e.type == EventType.wikiCandidateQueued);
+      final cand = WikiCandidate.fromJson(
+          e.payload['candidate'] as Map<String, Object?>);
       expect(cand.title, 'The Gullet');
       expect(cand.sourceTurnSeq, r.events.first.seq);
       expect(cand.id, isNotEmpty);
@@ -516,8 +508,8 @@ void main() {
       expect(
         () => engine.runTurn(
           projection: p,
-          input: TurnInput(
-              actorId: 'nobody', userInput: 'x', output: calmTurn()),
+          input:
+              TurnInput(actorId: 'nobody', userInput: 'x', output: calmTurn()),
           now: t0,
         ),
         throwsArgumentError,

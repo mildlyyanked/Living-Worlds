@@ -103,15 +103,14 @@ class InMemoryRepository implements WorldRepository {
     final p = await projection();
     return [
       for (final w in p.wiki.values)
-        if ((title == null ||
-                w.title.toLowerCase() == title.toLowerCase()) &&
+        if ((title == null || w.title.toLowerCase() == title.toLowerCase()) &&
             (category == null ||
                 w.category.toLowerCase() == category.toLowerCase()) &&
             (freeText == null ||
                 w.title.toLowerCase().contains(freeText.toLowerCase()) ||
                 w.body.toLowerCase().contains(freeText.toLowerCase()) ||
-                w.tags.any((t) =>
-                    t.toLowerCase().contains(freeText.toLowerCase()))))
+                w.tags.any(
+                    (t) => t.toLowerCase().contains(freeText.toLowerCase()))))
           w
     ];
   }

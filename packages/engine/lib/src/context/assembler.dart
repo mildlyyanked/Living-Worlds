@@ -46,10 +46,13 @@ class ContextAssembler {
   AssembledContext assemble({
     required WorldProjection projection,
     required String actorId,
+
     /// Cameo/canon blocks from the rendezvous service, already rendered.
     List<String> cameoBlocks = const [],
+
     /// Fixed shared-event canon the actor must narrate around (§4.4).
     List<SharedEventRecord> fixedCanon = const [],
+
     /// Semantic top-k bodies, already retrieved (§5.3.2).
     List<WikiEntry> semanticEntries = const [],
     String retrievalDetail = '',
@@ -127,12 +130,10 @@ class ContextAssembler {
     // 8. Rolling summary of older turns.
     final summary = projection.summaries[actorId];
     if (summary != null && recent.length < turns.length) {
-      add('rolling_summary',
-          'EARLIER (summarized): ${summary.summary}');
+      add('rolling_summary', 'EARLIER (summarized): ${summary.summary}');
     }
 
-    return AssembledContext(
-        text: included.join('\n\n'), sections: reports);
+    return AssembledContext(text: included.join('\n\n'), sections: reports);
   }
 
   String _sheet(Character c, WorldProjection p) {

@@ -27,8 +27,8 @@ class _WorldSelectScreenState extends State<WorldSelectScreen> {
   Future<List<WorldRef>> _load() => AppScope.of(context).listWorlds();
 
   void _refresh() => setState(() {
-        _worlds = _load();
-      });
+    _worlds = _load();
+  });
 
   Future<void> _createWorld() async {
     final result = await showDialog<(String, String)>(
@@ -37,8 +37,7 @@ class _WorldSelectScreenState extends State<WorldSelectScreen> {
     );
     if (result == null || !mounted) return;
     final services = AppScope.of(context);
-    await services.createWorld(
-        name: result.$1, characterName: result.$2);
+    await services.createWorld(name: result.$1, characterName: result.$2);
     _refresh();
   }
 
@@ -46,9 +45,9 @@ class _WorldSelectScreenState extends State<WorldSelectScreen> {
     final services = AppScope.of(context);
     final store = await WorldStore.open(services, ref);
     if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => WorldScreen(store: store)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => WorldScreen(store: store)));
     _refresh();
   }
 
@@ -76,7 +75,8 @@ class _WorldSelectScreenState extends State<WorldSelectScreen> {
           final worlds = snap.data!;
           if (worlds.isEmpty) {
             return const Center(
-                child: Text('No worlds yet. Create one to begin.'));
+              child: Text('No worlds yet. Create one to begin.'),
+            );
           }
           return GridView.count(
             crossAxisCount: 2,
@@ -96,9 +96,10 @@ class _WorldSelectScreenState extends State<WorldSelectScreen> {
                         children: [
                           const Icon(Icons.public, size: 40),
                           const Spacer(),
-                          Text(w.name,
-                              style:
-                                  Theme.of(context).textTheme.titleLarge),
+                          Text(
+                            w.name,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
                           Text(
                             w.path == 'memory' ? 'in memory' : 'on device',
                             style: Theme.of(context).textTheme.bodySmall,
@@ -155,8 +156,7 @@ class _NewWorldDialogState extends State<_NewWorldDialog> {
           TextField(
             key: const Key('character-name'),
             controller: _character,
-            decoration:
-                const InputDecoration(labelText: 'First character'),
+            decoration: const InputDecoration(labelText: 'First character'),
           ),
         ],
       ),

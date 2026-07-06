@@ -31,9 +31,7 @@ void main() {
         narrative: 'The rope snaps; you catch a ledge, wrist screaming.',
         proposedDeltas: ProposedDeltas(
           clockAdvanceMinutes: 20,
-          status: [
-            StatusOp(op: StatusOpKind.add, key: 'injured', severity: 2)
-          ],
+          status: [StatusOp(op: StatusOpKind.add, key: 'injured', severity: 2)],
         ),
         peril: true,
       ),
@@ -50,8 +48,7 @@ void main() {
     expect(p.characters['ash']!.subjectiveClock, 20);
   });
 
-  test('scenario: item-gated branch — key grants unlock affordance',
-      () async {
+  test('scenario: item-gated branch — key grants unlock affordance', () async {
     final (controller, repo, llm) = await harness(
       [
         const TurnOutput(
@@ -119,8 +116,8 @@ void main() {
     ]);
     final turn = await controller.playTurn(
         actorId: 'ash', userInput: 'finish the survey');
-    expect(turn.notifications,
-        contains('Quest complete: Map the Sunken Vault'));
+    expect(
+        turn.notifications, contains('Quest complete: Map the Sunken Vault'));
     final p = await repo.projection();
     final a = p.characters['ash']!;
     expect(a.questById('q-map')!.state, QuestState.complete);
@@ -128,16 +125,15 @@ void main() {
     expect(a.stats['coin'], 35);
   });
 
-  test('scenario: meeting/cameo — playing with B present writes a '
+  test(
+      'scenario: meeting/cameo — playing with B present writes a '
       'SharedEvent both timelines must honor (§4.4)', () async {
     final (controller, repo, _) = await harness([
       const TurnOutput(
         narrative: 'You find Brynn at the tavern and split the vault haul.',
         proposedDeltas: ProposedDeltas(
           clockAdvanceMinutes: 60,
-          relationships: [
-            RelationshipOp(to: 'brynn', dim: 'trust', delta: 2)
-          ],
+          relationships: [RelationshipOp(to: 'brynn', dim: 'trust', delta: 2)],
         ),
       ),
     ]);
@@ -189,11 +185,11 @@ void main() {
     final died = events.where((e) => e.type == EventType.characterDied);
     expect(died, hasLength(1));
     // The death eval is fully reconstructible from the log (§9).
-    final report = TurnDebugReport.fromJson(
-        (events.firstWhere((e) => e.type == EventType.turnCommitted &&
-                e.payload['narrative'] ==
-                    'The serpent strikes twice. The world goes quiet.'))
-            .cause['debug_report'] as Map<String, Object?>);
+    final report = TurnDebugReport.fromJson((events.firstWhere((e) =>
+            e.type == EventType.turnCommitted &&
+            e.payload['narrative'] ==
+                'The serpent strikes twice. The world goes quiet.'))
+        .cause['debug_report'] as Map<String, Object?>);
     expect(report.deathEval!.instantTrigger, contains('poisoned'));
 
     await expectLater(
@@ -207,7 +203,8 @@ void main() {
     final repo = await seededRepo(InMemoryRepository());
     final before = await repo.lastSeq();
     final llm = _ExplodingLlm();
-    final controller = TurnController(repo: repo, llm: llm, clock: fixedClock());
+    final controller =
+        TurnController(repo: repo, llm: llm, clock: fixedClock());
     await expectLater(
       controller.playTurn(actorId: 'ash', userInput: 'anything'),
       throwsA(isA<StateError>()),

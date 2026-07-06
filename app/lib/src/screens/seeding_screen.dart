@@ -47,18 +47,20 @@ class _SeedingScreenState extends State<SeedingScreen> {
     try {
       final action = await _session.send(text);
       setState(() {
-        _messages.add(_Message(
-          fromUser: false,
-          text: switch (action.kind) {
-            SeedingActionKind.clarify || SeedingActionKind.chat =>
-              action.message,
-            SeedingActionKind.proposeCreate =>
-              'Proposed new entry: "${action.entry!.title}"',
-            SeedingActionKind.proposeUpdate =>
-              'Proposed update to: "${action.entry!.title}"',
-          },
-          action: action,
-        ));
+        _messages.add(
+          _Message(
+            fromUser: false,
+            text: switch (action.kind) {
+              SeedingActionKind.clarify ||
+              SeedingActionKind.chat => action.message,
+              SeedingActionKind.proposeCreate =>
+                'Proposed new entry: "${action.entry!.title}"',
+              SeedingActionKind.proposeUpdate =>
+                'Proposed update to: "${action.entry!.title}"',
+            },
+            action: action,
+          ),
+        );
       });
     } catch (e) {
       setState(() {
@@ -75,10 +77,14 @@ class _SeedingScreenState extends State<SeedingScreen> {
       await _session.accept(action);
       await widget.store.refresh();
       setState(() {
-        _messages.add(_Message(
+        _messages.add(
+          _Message(
             fromUser: false,
-            text: 'Committed "${action.entry!.title}" to the wiki '
-                '(event logged; undo in the change log).'));
+            text:
+                'Committed "${action.entry!.title}" to the wiki '
+                '(event logged; undo in the change log).',
+          ),
+        );
       });
     } catch (e) {
       setState(() {
@@ -102,11 +108,13 @@ class _SeedingScreenState extends State<SeedingScreen> {
                 const Card(
                   child: Padding(
                     padding: EdgeInsets.all(12),
-                    child: Text('Behind-the-scenes world building: describe '
-                        'people, places, factions, lore. The assistant may '
-                        'ask clarifying questions, then proposes wiki '
-                        'entries you approve. No clock, no dice, no '
-                        'character state (§5.1).'),
+                    child: Text(
+                      'Behind-the-scenes world building: describe '
+                      'people, places, factions, lore. The assistant may '
+                      'ask clarifying questions, then proposes wiki '
+                      'entries you approve. No clock, no dice, no '
+                      'character state (§5.1).',
+                    ),
                   ),
                 ),
                 for (final m in _messages) ...[
@@ -133,10 +141,10 @@ class _SeedingScreenState extends State<SeedingScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                                '${m.action!.entry!.title} · '
-                                '${m.action!.entry!.category}',
-                                style:
-                                    Theme.of(context).textTheme.titleSmall),
+                              '${m.action!.entry!.title} · '
+                              '${m.action!.entry!.category}',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
                             const SizedBox(height: 6),
                             Text(m.action!.entry!.body),
                             const SizedBox(height: 6),
@@ -145,8 +153,9 @@ class _SeedingScreenState extends State<SeedingScreen> {
                               children: [
                                 FilledButton(
                                   key: const Key('accept-proposal'),
-                                  onPressed:
-                                      _busy ? null : () => _accept(m.action!),
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _accept(m.action!),
                                   child: const Text('Accept & commit'),
                                 ),
                               ],

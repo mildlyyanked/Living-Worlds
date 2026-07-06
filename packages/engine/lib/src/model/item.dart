@@ -110,7 +110,11 @@ class ItemInstance {
   final Map<String, Object?> state;
 
   ItemInstance copyWith({int? qty, Map<String, Object?>? state}) =>
-      ItemInstance(defId: defId, qty: qty ?? this.qty, uid: uid, state: state ?? this.state);
+      ItemInstance(
+          defId: defId,
+          qty: qty ?? this.qty,
+          uid: uid,
+          state: state ?? this.state);
 
   Map<String, Object?> toJson() =>
       {'def_id': defId, 'qty': qty, 'uid': uid, 'state': state};

@@ -20,7 +20,9 @@ class LivingWorldsApp extends StatelessWidget {
         title: 'Living Worlds',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF3A5F4B), brightness: Brightness.dark),
+            seedColor: const Color(0xFF3A5F4B),
+            brightness: Brightness.dark,
+          ),
           useMaterial3: true,
         ),
         home: const WorldSelectScreen(),

@@ -26,17 +26,21 @@ class _SaveLoadTabState extends State<SaveLoadTab> {
 
   Future<void> _save(String slot) async {
     await store.saveToSlot(slot);
-    setState(() => _status = store.lastError == null
-        ? 'Saved to $slot.'
-        : 'Save failed: ${store.lastError}');
+    setState(
+      () => _status = store.lastError == null
+          ? 'Saved to $slot.'
+          : 'Save failed: ${store.lastError}',
+    );
   }
 
   Future<void> _copyExport() async {
     final blob = await store.exportSave();
     if (blob != null) {
       await Clipboard.setData(ClipboardData(text: blob));
-      setState(() => _status =
-          'Export copied to clipboard (${(blob.length / 1024).toStringAsFixed(1)} KB of JSON).');
+      setState(
+        () => _status =
+            'Export copied to clipboard (${(blob.length / 1024).toStringAsFixed(1)} KB of JSON).',
+      );
     }
   }
 
@@ -45,7 +49,8 @@ class _SaveLoadTabState extends State<SaveLoadTab> {
     try {
       final blob = await store.repo.loadWorldSnapshot(slot);
       final save = const SaveCodec().decode(blob);
-      text = 'Format v${save.formatVersion} · ${save.events.length} events · '
+      text =
+          'Format v${save.formatVersion} · ${save.events.length} events · '
           '${save.revertedSeqs.length} revert markers.\n\n'
           'Loading a save restores the full event log and rebuilds all '
           'projections, verified against the cached projection (§8).';
@@ -60,8 +65,9 @@ class _SaveLoadTabState extends State<SaveLoadTab> {
         content: Text(text),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );

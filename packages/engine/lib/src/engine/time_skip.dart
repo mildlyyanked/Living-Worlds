@@ -134,8 +134,7 @@ class TimeSkipGenerator {
     }
 
     final raw = await llm.complete(
-      systemPrompt:
-          'You are the retrospective generator for a life-sim world. '
+      systemPrompt: 'You are the retrospective generator for a life-sim world. '
           'You narrate downtime between play sessions. Strict JSON only.',
       prompt: buildPrompt(
           projection: projection,

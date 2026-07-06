@@ -37,8 +37,7 @@ Future<void> openAsh(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('world select: create a world and see its tile',
-      (tester) async {
+  testWidgets('world select: create a world and see its tile', (tester) async {
     await tester.pumpWidget(LivingWorldsApp(services: testServices()));
     await tester.pumpAndSettle();
     expect(find.text('No worlds yet. Create one to begin.'), findsOneWidget);
@@ -47,8 +46,9 @@ void main() {
     expect(find.textContaining('Harborfall'), findsOneWidget);
   });
 
-  testWidgets('gameplay: play a turn offline — narrative, chips, clock',
-      (tester) async {
+  testWidgets('gameplay: play a turn offline — narrative, chips, clock', (
+    tester,
+  ) async {
     await tester.pumpWidget(LivingWorldsApp(services: testServices()));
     await tester.pumpAndSettle();
     await createWorldViaUi(tester);
@@ -59,7 +59,9 @@ void main() {
 
     await openAsh(tester);
     await tester.enterText(
-        find.byKey(const Key('turn-input')), 'walk the harbor wall');
+      find.byKey(const Key('turn-input')),
+      'walk the harbor wall',
+    );
     await tester.tap(find.byKey(const Key('send-turn')));
     await tester.pumpAndSettle();
 
@@ -70,8 +72,9 @@ void main() {
     expect(find.text('Day 1, 00:30'), findsOneWidget); // actor clock
   });
 
-  testWidgets('debug panel: toggle in settings, see per-turn transaction',
-      (tester) async {
+  testWidgets('debug panel: toggle in settings, see per-turn transaction', (
+    tester,
+  ) async {
     final services = testServices();
     services.settings.debugPanel = true;
     await tester.pumpWidget(LivingWorldsApp(services: services));
@@ -81,7 +84,9 @@ void main() {
     await openAsh(tester);
 
     await tester.enterText(
-        find.byKey(const Key('turn-input')), 'poke the tide');
+      find.byKey(const Key('turn-input')),
+      'poke the tide',
+    );
     await tester.tap(find.byKey(const Key('send-turn')));
     await tester.pumpAndSettle();
 
@@ -91,8 +96,9 @@ void main() {
     expect(find.textContaining('character_sheet'), findsOneWidget);
   });
 
-  testWidgets('gameplay overlays: inventory, quests, relationships toggle',
-      (tester) async {
+  testWidgets('gameplay overlays: inventory, quests, relationships toggle', (
+    tester,
+  ) async {
     await tester.pumpWidget(LivingWorldsApp(services: testServices()));
     await tester.pumpAndSettle();
     await createWorldViaUi(tester);
@@ -114,52 +120,60 @@ void main() {
   });
 
   testWidgets(
-      'engine disposes in the UI too: fixture LLM proposes an illegal item '
-      'and an over-cap clock; chips show only what was accepted',
-      (tester) async {
-    final fixture = FixtureLlmClient(turnOutputs: [
-      const TurnOutput(
-        narrative: 'A vorpal sword materializes! You nap for a week.',
-        proposedDeltas: ProposedDeltas(
-          clockAdvanceMinutes: 100000,
-          inventory: [
-            InventoryOp(op: InventoryOpKind.grant, item: 'vorpal sword')
-          ],
-          stats: [StatOp(key: 'coin', op: StatOpKind.delta, value: 5)],
-        ),
-      ),
-    ]);
-    final services = testServices(llmFactory: (_) => fixture);
-    services.settings.debugPanel = true;
-    await tester.pumpWidget(LivingWorldsApp(services: services));
-    await tester.pumpAndSettle();
-    await createWorldViaUi(tester);
-    await openHarborfall(tester);
-    await openAsh(tester);
+    'engine disposes in the UI too: fixture LLM proposes an illegal item '
+    'and an over-cap clock; chips show only what was accepted',
+    (tester) async {
+      final fixture = FixtureLlmClient(
+        turnOutputs: [
+          const TurnOutput(
+            narrative: 'A vorpal sword materializes! You nap for a week.',
+            proposedDeltas: ProposedDeltas(
+              clockAdvanceMinutes: 100000,
+              inventory: [
+                InventoryOp(op: InventoryOpKind.grant, item: 'vorpal sword'),
+              ],
+              stats: [StatOp(key: 'coin', op: StatOpKind.delta, value: 5)],
+            ),
+          ),
+        ],
+      );
+      final services = testServices(llmFactory: (_) => fixture);
+      services.settings.debugPanel = true;
+      await tester.pumpWidget(LivingWorldsApp(services: services));
+      await tester.pumpAndSettle();
+      await createWorldViaUi(tester);
+      await openHarborfall(tester);
+      await openAsh(tester);
 
-    await tester.enterText(
-        find.byKey(const Key('turn-input')), 'wish for a sword');
-    await tester.tap(find.byKey(const Key('send-turn')));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('turn-input')),
+        'wish for a sword',
+      );
+      await tester.tap(find.byKey(const Key('send-turn')));
+      await tester.pumpAndSettle();
 
-    // Clock clamped to the cap, item rejected, coin accepted.
-    expect(find.text('+240 min'), findsOneWidget);
-    expect(find.text('+5 COIN'), findsOneWidget);
-    expect(find.textContaining('[inventory] rejected'), findsOneWidget);
-    expect(find.textContaining('no such item'), findsOneWidget);
-    expect(find.textContaining('[clock] clamped'), findsOneWidget);
-  });
+      // Clock clamped to the cap, item rejected, coin accepted.
+      expect(find.text('+240 min'), findsOneWidget);
+      expect(find.text('+5 COIN'), findsOneWidget);
+      expect(find.textContaining('[inventory] rejected'), findsOneWidget);
+      expect(find.textContaining('no such item'), findsOneWidget);
+      expect(find.textContaining('[clock] clamped'), findsOneWidget);
+    },
+  );
 
   testWidgets('wiki: seeding workshop clarifies, proposes, commits; '
       'change log can undo', (tester) async {
-    final fixture = FixtureLlmClient(completions: [
-      '{"action":"clarify","message":"Natural cave or dug tunnel?"}',
-      '{"action":"propose_create","entry":{"title":"The Gullet",'
-          '"category":"Places","body":"A drowned smuggling tunnel.",'
-          '"tags":["harbor"]}}',
-    ]);
+    final fixture = FixtureLlmClient(
+      completions: [
+        '{"action":"clarify","message":"Natural cave or dug tunnel?"}',
+        '{"action":"propose_create","entry":{"title":"The Gullet",'
+            '"category":"Places","body":"A drowned smuggling tunnel.",'
+            '"tags":["harbor"]}}',
+      ],
+    );
     await tester.pumpWidget(
-        LivingWorldsApp(services: testServices(llmFactory: (_) => fixture)));
+      LivingWorldsApp(services: testServices(llmFactory: (_) => fixture)),
+    );
     await tester.pumpAndSettle();
     await createWorldViaUi(tester);
     await openHarborfall(tester);
@@ -170,13 +184,17 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
-        find.byKey(const Key('seeding-input')), 'Add a smuggler tunnel');
+      find.byKey(const Key('seeding-input')),
+      'Add a smuggler tunnel',
+    );
     await tester.tap(find.byKey(const Key('seeding-send')));
     await tester.pumpAndSettle();
     expect(find.text('Natural cave or dug tunnel?'), findsOneWidget);
 
     await tester.enterText(
-        find.byKey(const Key('seeding-input')), 'Dug, floods at high tide');
+      find.byKey(const Key('seeding-input')),
+      'Dug, floods at high tide',
+    );
     await tester.tap(find.byKey(const Key('seeding-send')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('seeding-proposal')), findsOneWidget);
@@ -202,27 +220,33 @@ void main() {
 
   testWidgets('wiki candidates from gameplay land in the review queue and '
       'can be promoted', (tester) async {
-    final fixture = FixtureLlmClient(turnOutputs: [
-      const TurnOutput(
-        narrative: 'You discover the Gullet.',
-        proposedDeltas: ProposedDeltas(clockAdvanceMinutes: 10),
-        wikiCandidates: [
-          WikiCandidate(
+    final fixture = FixtureLlmClient(
+      turnOutputs: [
+        const TurnOutput(
+          narrative: 'You discover the Gullet.',
+          proposedDeltas: ProposedDeltas(clockAdvanceMinutes: 10),
+          wikiCandidates: [
+            WikiCandidate(
               id: '',
               title: 'The Gullet',
               category: 'Places',
-              body: 'A drowned smuggling tunnel.')
-        ],
-      ),
-    ]);
+              body: 'A drowned smuggling tunnel.',
+            ),
+          ],
+        ),
+      ],
+    );
     await tester.pumpWidget(
-        LivingWorldsApp(services: testServices(llmFactory: (_) => fixture)));
+      LivingWorldsApp(services: testServices(llmFactory: (_) => fixture)),
+    );
     await tester.pumpAndSettle();
     await createWorldViaUi(tester);
     await openHarborfall(tester);
     await openAsh(tester);
     await tester.enterText(
-        find.byKey(const Key('turn-input')), 'explore the caves');
+      find.byKey(const Key('turn-input')),
+      'explore the caves',
+    );
     await tester.tap(find.byKey(const Key('send-turn')));
     await tester.pumpAndSettle();
 
@@ -232,8 +256,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Review queue'), findsOneWidget);
-    await tester.tap(find.byWidgetPredicate((w) =>
-        w.key != null && '${w.key}'.contains('promote-cand')));
+    await tester.tap(
+      find.byWidgetPredicate(
+        (w) => w.key != null && '${w.key}'.contains('promote-cand'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Review queue'), findsNothing);
@@ -258,8 +285,9 @@ void main() {
     expect(find.textContaining('Format v1'), findsOneWidget);
   });
 
-  testWidgets('relationship graph tab renders with two characters',
-      (tester) async {
+  testWidgets('relationship graph tab renders with two characters', (
+    tester,
+  ) async {
     await tester.pumpWidget(LivingWorldsApp(services: testServices()));
     await tester.pumpAndSettle();
     await createWorldViaUi(tester);
@@ -272,8 +300,9 @@ void main() {
   });
 
   testWidgets('meeting flow: add a character, mark them present, the turn '
-      'writes SharedEvent canon and a time-skip is offered later',
-      (tester) async {
+      'writes SharedEvent canon and a time-skip is offered later', (
+    tester,
+  ) async {
     final services = testServices();
     await tester.pumpWidget(LivingWorldsApp(services: services));
     await tester.pumpAndSettle();
@@ -284,7 +313,9 @@ void main() {
     await tester.tap(find.byKey(const Key('new-character')));
     await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('new-character-name')), 'Brynn');
+      find.byKey(const Key('new-character-name')),
+      'Brynn',
+    );
     await tester.tap(find.byKey(const Key('create-character')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('character-brynn')), findsOneWidget);
@@ -294,7 +325,9 @@ void main() {
     await tester.tap(find.byKey(const Key('present-brynn')));
     await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('turn-input')), 'share a drink with Brynn');
+      find.byKey(const Key('turn-input')),
+      'share a drink with Brynn',
+    );
     await tester.tap(find.byKey(const Key('send-turn')));
     await tester.pumpAndSettle();
 

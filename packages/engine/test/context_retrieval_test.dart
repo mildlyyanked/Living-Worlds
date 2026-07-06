@@ -20,8 +20,8 @@ void main() {
           input: TurnInput(
               actorId: 'ash',
               userInput: 'step $i',
-              output: calmTurn(
-                  narrative: 'Narrative for step $i.', minutes: 10)),
+              output:
+                  calmTurn(narrative: 'Narrative for step $i.', minutes: 10)),
           now: t0,
         );
         await repo.appendEvents(r.events);
@@ -55,8 +55,7 @@ void main() {
           containsAll(['character_sheet', 'active_quests', 'recent_turns']));
     });
 
-    test('lower-priority sections are dropped first under pressure',
-        () async {
+    test('lower-priority sections are dropped first under pressure', () async {
       final service = WorldService(repo, clock: fixedClock());
       for (var i = 0; i < 30; i++) {
         await service.createWikiEntry(WikiEntry(
@@ -127,8 +126,7 @@ void main() {
 
     test('topK is deterministic under ties', () {
       final items = ['a', 'b', 'c'];
-      final picked = topKByCosine(
-          [1.0, 0.0], items, (s) => [1.0, 0.0], k: 2);
+      final picked = topKByCosine([1.0, 0.0], items, (s) => [1.0, 0.0], k: 2);
       expect(picked, ['a', 'b']);
     });
 
@@ -154,8 +152,7 @@ void main() {
           input: TurnInput(
               actorId: 'ash',
               userInput: 'step $i',
-              output:
-                  calmTurn(narrative: 'Narrative $i.', minutes: 5)),
+              output: calmTurn(narrative: 'Narrative $i.', minutes: 5)),
           now: t0,
         );
         await repo.appendEvents(r.events);
@@ -163,9 +160,8 @@ void main() {
 
       final llm = FixtureLlmClient(
           completions: ['Ash walked ten steps, uneventfully.']);
-      final summarizer =
-          RollingSummarizer(repo: repo, llm: llm, keepVerbatim: 4,
-              clock: fixedClock());
+      final summarizer = RollingSummarizer(
+          repo: repo, llm: llm, keepVerbatim: 4, clock: fixedClock());
       expect(await summarizer.needsSummarization('ash'), isTrue);
       final event = await summarizer.summarize('ash');
       expect(event!.type, EventType.summaryCached);

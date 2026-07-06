@@ -23,7 +23,8 @@ class RelationshipsTab extends StatelessWidget {
 
     if (characters.length < 2) {
       return const Center(
-          child: Text('Add a second character to grow the graph.'));
+        child: Text('Add a second character to grow the graph.'),
+      );
     }
 
     return Column(
@@ -50,12 +51,14 @@ class RelationshipsTab extends StatelessWidget {
                 ListTile(
                   dense: true,
                   title: Text(
-                      '${p.characters[e.fromChar]?.name ?? e.fromChar} → '
-                      '${p.characters[e.toChar]?.name ?? e.toChar}'),
-                  subtitle: Text(e.dims.entries
-                      .map((d) =>
-                          '${d.key}: ${d.value.toStringAsFixed(0)}')
-                      .join(' · ')),
+                    '${p.characters[e.fromChar]?.name ?? e.fromChar} → '
+                    '${p.characters[e.toChar]?.name ?? e.toChar}',
+                  ),
+                  subtitle: Text(
+                    e.dims.entries
+                        .map((d) => '${d.key}: ${d.value.toStringAsFixed(0)}')
+                        .join(' · '),
+                  ),
                 ),
             ],
           ),
@@ -66,8 +69,11 @@ class RelationshipsTab extends StatelessWidget {
 }
 
 class _GraphPainter extends CustomPainter {
-  _GraphPainter(
-      {required this.characters, required this.edges, required this.theme});
+  _GraphPainter({
+    required this.characters,
+    required this.edges,
+    required this.theme,
+  });
 
   final List<Character> characters;
   final List<RelationshipEdge> edges;
@@ -80,16 +86,15 @@ class _GraphPainter extends CustomPainter {
     final positions = <String, Offset>{};
     for (var i = 0; i < characters.length; i++) {
       final angle = 2 * math.pi * i / characters.length - math.pi / 2;
-      positions[characters[i].id] = center +
-          Offset(radius * math.cos(angle), radius * math.sin(angle));
+      positions[characters[i].id] =
+          center + Offset(radius * math.cos(angle), radius * math.sin(angle));
     }
 
     for (final e in edges) {
       final from = positions[e.fromChar];
       final to = positions[e.toChar];
       if (from == null || to == null || e.dims.isEmpty) continue;
-      final mean =
-          e.dims.values.fold(0.0, (a, b) => a + b) / e.dims.length;
+      final mean = e.dims.values.fold(0.0, (a, b) => a + b) / e.dims.length;
       final t = ((mean + 10) / 20).clamp(0.0, 1.0);
       final paint = Paint()
         ..color = Color.lerp(Colors.redAccent, Colors.greenAccent, t)!
@@ -121,12 +126,13 @@ class _GraphPainter extends CustomPainter {
     for (final c in characters) {
       final pos = positions[c.id]!;
       canvas.drawCircle(
-          pos,
-          22,
-          Paint()
-            ..color = c.alive
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.errorContainer);
+        pos,
+        22,
+        Paint()
+          ..color = c.alive
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.errorContainer,
+      );
       final tp = TextPainter(
         text: TextSpan(
           text: c.name + (c.alive ? '' : ' †'),
@@ -137,12 +143,15 @@ class _GraphPainter extends CustomPainter {
       tp.paint(canvas, pos + Offset(-tp.width / 2, 26));
       final initial = TextPainter(
         text: TextSpan(
-            text: c.name.isEmpty ? '?' : c.name[0],
-            style: theme.textTheme.titleMedium),
+          text: c.name.isEmpty ? '?' : c.name[0],
+          style: theme.textTheme.titleMedium,
+        ),
         textDirection: TextDirection.ltr,
       )..layout();
       initial.paint(
-          canvas, pos + Offset(-initial.width / 2, -initial.height / 2));
+        canvas,
+        pos + Offset(-initial.width / 2, -initial.height / 2),
+      );
     }
   }
 

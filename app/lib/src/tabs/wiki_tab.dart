@@ -32,15 +32,20 @@ class _WikiTabState extends State<WikiTab> {
         padding: const EdgeInsets.all(12),
         children: [
           if (candidates.isNotEmpty) ...[
-            Text('Review queue (from gameplay, §5.2)',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Review queue (from gameplay, §5.2)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             for (final c in candidates)
               Card(
                 key: Key('candidate-${c.id}'),
                 child: ListTile(
                   title: Text('${c.title}  ·  ${c.category}'),
-                  subtitle:
-                      Text(c.body, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(
+                    c.body,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -66,16 +71,21 @@ class _WikiTabState extends State<WikiTab> {
           if (entries.isEmpty)
             const Padding(
               padding: EdgeInsets.all(8),
-              child: Text('Nothing written yet — open the seeding workshop '
-                  'to build the world.'),
+              child: Text(
+                'Nothing written yet — open the seeding workshop '
+                'to build the world.',
+              ),
             ),
           for (final w in entries)
             Card(
               key: Key('wiki-${w.id}'),
               child: ListTile(
                 title: Text('${w.title}  ·  ${w.category}  ·  v${w.version}'),
-                subtitle:
-                    Text(w.body, maxLines: 2, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  w.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 onTap: () => _view(w),
               ),
             ),
@@ -87,9 +97,9 @@ class _WikiTabState extends State<WikiTab> {
         key: const Key('open-seeding'),
         icon: const Icon(Icons.auto_fix_high),
         label: const Text('Seeding workshop'),
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => SeedingScreen(store: store),
-        )),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => SeedingScreen(store: store)),
+        ),
       ),
     );
   }
@@ -104,10 +114,12 @@ class _WikiTabState extends State<WikiTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('${w.category} · v${w.version}'
-                  '${w.clockRef != null ? ' · timeline @${w.clockRef}min' : ''}'
-                  '${w.tags.isNotEmpty ? '\ntags: ${w.tags.join(', ')}' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                '${w.category} · v${w.version}'
+                '${w.clockRef != null ? ' · timeline @${w.clockRef}min' : ''}'
+                '${w.tags.isNotEmpty ? '\ntags: ${w.tags.join(', ')}' : ''}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 8),
               Text(w.body),
             ],
@@ -115,8 +127,9 @@ class _WikiTabState extends State<WikiTab> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -183,8 +196,7 @@ class _ChangeLog extends StatelessWidget {
                 title: Text(
                   _describe(e),
                   style: reverted.contains(e.seq)
-                      ? const TextStyle(
-                          decoration: TextDecoration.lineThrough)
+                      ? const TextStyle(decoration: TextDecoration.lineThrough)
                       : null,
                 ),
                 trailing: reverted.contains(e.seq)

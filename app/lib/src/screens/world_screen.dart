@@ -65,7 +65,8 @@ class WorldScreen extends StatelessWidget {
                       RelationshipsTab(store: store),
                       SaveLoadTab(store: store),
                       const _DeferredStub(
-                          label: 'Map / Timeline — deferred (§13)'),
+                        label: 'Map / Timeline — deferred (§13)',
+                      ),
                     ],
                   ),
           ),
@@ -81,7 +82,6 @@ class _DeferredStub extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Text(label, style: Theme.of(context).textTheme.bodyLarge),
-      );
+  Widget build(BuildContext context) =>
+      Center(child: Text(label, style: Theme.of(context).textTheme.bodyLarge));
 }

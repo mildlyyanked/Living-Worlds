@@ -196,7 +196,10 @@ class TurnEngine {
 
     void addStatus(String key, double severity, String reason,
         {String source = 'engine'}) {
-      statusList = [for (final s in statusList) if (s.key != key) s];
+      statusList = [
+        for (final s in statusList)
+          if (s.key != key) s
+      ];
       statusList.add(
           StatusInstance(key: key, severity: severity, sinceClock: clockTo));
       statusesTouchedThisTurn.add(key);
@@ -216,7 +219,10 @@ class TurnEngine {
     }
 
     void removeStatus(String key, String reason, {String source = 'engine'}) {
-      statusList = [for (final s in statusList) if (s.key != key) s];
+      statusList = [
+        for (final s in statusList)
+          if (s.key != key) s
+      ];
       deltaEvents.add(_PendingEvent(EventType.statusChanged, {
         'char_id': actor.id,
         'op': 'remove',
@@ -401,9 +407,7 @@ class TurnEngine {
             clamped == target ? DeltaOutcome.accepted : DeltaOutcome.clamped,
         from: target,
         to: clamped,
-        reason: clamped == target
-            ? ''
-            : 'clamped to [${def.min}, ${def.max}]',
+        reason: clamped == target ? '' : 'clamped to [${def.min}, ${def.max}]',
       ));
       emitStatChange(op.key, from, clamped, op.reason);
     }
@@ -458,8 +462,7 @@ class TurnEngine {
     final healthAfter = healthOf(candidate, schema, config, atClock: clockTo);
     final hpDiff = healthAfter - healthBefore;
     if (hpDiff.abs() >= 0.5) {
-      notifications.add(
-          '${hpDiff >= 0 ? '+' : '−'}${_trim(hpDiff.abs())} HP');
+      notifications.add('${hpDiff >= 0 ? '+' : '−'}${_trim(hpDiff.abs())} HP');
     }
 
     // Expire statuses fully decayed by the advance, so the sheet stays clean.
@@ -522,9 +525,7 @@ class TurnEngine {
       }
       switch (op.op) {
         case QuestOpKind.progress:
-          final step = quest.steps
-              .where((s) => s.id == op.stepId)
-              .firstOrNull;
+          final step = quest.steps.where((s) => s.id == op.stepId).firstOrNull;
           if (step == null) {
             decisions.add(DeltaDecision(
               section: 'quest',
@@ -572,8 +573,8 @@ class TurnEngine {
             reason: nowComplete ? 'final step; quest auto-completed' : '',
           ));
           if (nowComplete) {
-            _grantQuestRewards(updated, projection, schema, grantItem,
-                applyStatDelta, notes);
+            _grantQuestRewards(
+                updated, projection, schema, grantItem, applyStatDelta, notes);
           }
         case QuestOpKind.complete:
           if (!quest.allStepsDone) {
@@ -581,8 +582,7 @@ class TurnEngine {
               section: 'quest',
               proposal: op.toJson(),
               outcome: DeltaOutcome.rejected,
-              reason:
-                  'cannot complete "${quest.title}": steps remain undone',
+              reason: 'cannot complete "${quest.title}": steps remain undone',
             ));
             continue;
           }
@@ -602,8 +602,8 @@ class TurnEngine {
             proposal: op.toJson(),
             outcome: DeltaOutcome.accepted,
           ));
-          _grantQuestRewards(updated, projection, schema, grantItem,
-              applyStatDelta, notes);
+          _grantQuestRewards(
+              updated, projection, schema, grantItem, applyStatDelta, notes);
         case QuestOpKind.fail:
           final updated = quest.copyWith(state: QuestState.failed);
           quests = [for (final q in quests) q.id == quest.id ? updated : q];
@@ -645,11 +645,10 @@ class TurnEngine {
         ));
         continue;
       }
-      final current =
-          projection.edge(actor.id, op.to)?.dims[op.dim] ?? 0.0;
+      final current = projection.edge(actor.id, op.to)?.dims[op.dim] ?? 0.0;
       final desired = current + op.delta;
-      final clamped = desired.clamp(
-          schema.relationshipDimMin, schema.relationshipDimMax);
+      final clamped =
+          desired.clamp(schema.relationshipDimMin, schema.relationshipDimMax);
       decisions.add(DeltaDecision(
         section: 'relationships',
         proposal: op.toJson(),

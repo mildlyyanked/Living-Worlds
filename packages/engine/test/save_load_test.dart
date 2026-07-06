@@ -65,8 +65,7 @@ void main() {
     // The restored world continues playing deterministically.
     final r = engine.runTurn(
       projection: restored,
-      input:
-          TurnInput(actorId: 'ash', userInput: 'go', output: calmTurn()),
+      input: TurnInput(actorId: 'ash', userInput: 'go', output: calmTurn()),
       now: t0,
     );
     expect(r.events.first.seq, await restoredRepo.lastSeq() + 1);
@@ -75,9 +74,8 @@ void main() {
   test('round-trip preserves undo state (revert markers)', () async {
     final repo = await playedRepo();
     final events = await repo.eventsUpTo(-1);
-    final lastTurnSeq = events
-        .lastWhere((e) => e.type == EventType.turnCommitted)
-        .seq;
+    final lastTurnSeq =
+        events.lastWhere((e) => e.type == EventType.turnCommitted).seq;
     await repo.revertAfter(lastTurnSeq - 1); // undo last turn
     final undoneSnap = jsonEncode((await repo.projection()).toJson());
 
@@ -128,8 +126,7 @@ void main() {
     final blob = await codec.exportWorld(repo);
     await repo.saveWorldSnapshot('slot-1', blob);
     final loaded = await repo.loadWorldSnapshot('slot-1');
-    final restored =
-        await codec.importWorld(InMemoryRepository(), loaded);
+    final restored = await codec.importWorld(InMemoryRepository(), loaded);
     expect(restored.characters['ash']!.subjectiveClock, 75);
   });
 }

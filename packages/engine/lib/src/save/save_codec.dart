@@ -70,11 +70,9 @@ class SaveCodec {
   /// Restore a save into an empty repository. Rebuilds the projection from
   /// the log and, when the save carries a cache, verifies replay against it
   /// ("trust cache + verify", §8). Returns the rebuilt projection.
-  Future<WorldProjection> importWorld(
-      WorldRepository repo, String blob) async {
+  Future<WorldProjection> importWorld(WorldRepository repo, String blob) async {
     if (await repo.lastSeq() != -1) {
-      throw WorldRepositoryException(
-          'importWorld: repository is not empty');
+      throw WorldRepositoryException('importWorld: repository is not empty');
     }
     final save = decode(blob);
     await repo.appendEvents(save.events);

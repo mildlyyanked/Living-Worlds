@@ -103,9 +103,8 @@ class Character {
   }
 
   /// Total quantity held of a given item definition.
-  int qtyOfDef(String defId) => inventory
-      .where((i) => i.defId == defId)
-      .fold(0, (sum, i) => sum + i.qty);
+  int qtyOfDef(String defId) =>
+      inventory.where((i) => i.defId == defId).fold(0, (sum, i) => sum + i.qty);
 
   Quest? questById(String id) {
     for (final q in quests) {
@@ -137,7 +136,8 @@ class Character {
         subjectiveClock: json['subjective_clock'] as int? ?? 0,
         alive: json['alive'] as bool? ?? true,
         stats: {
-          for (final e in (json['stats'] as Map<String, Object?>? ?? {}).entries)
+          for (final e
+              in (json['stats'] as Map<String, Object?>? ?? {}).entries)
             e.key: (e.value! as num).toDouble()
         },
         status: [

@@ -145,8 +145,12 @@ Future<void> _demo(List<String> args) async {
             'across your palm for the trouble.',
         proposedDeltas: ProposedDeltas(
           clockAdvanceMinutes: 40,
-          inventory: [InventoryOp(op: InventoryOpKind.grant, item: 'rusty key')],
-          status: [StatusOp(op: StatusOpKind.add, key: 'bleeding', severity: 1)],
+          inventory: [
+            InventoryOp(op: InventoryOpKind.grant, item: 'rusty key')
+          ],
+          status: [
+            StatusOp(op: StatusOpKind.add, key: 'bleeding', severity: 1)
+          ],
         ),
         peril: true,
         wikiCandidates: [
@@ -275,8 +279,7 @@ void _printProjection(WorldProjection p) {
       '${p.worldClock} min) ===');
   for (final c in p.characters.values) {
     final schema = p.world!.schema;
-    stdout.writeln(
-        '${c.name}: clock=${c.subjectiveClock} alive=${c.alive} '
+    stdout.writeln('${c.name}: clock=${c.subjectiveClock} alive=${c.alive} '
         'health=${healthOf(c, schema, const EngineConfig()).toStringAsFixed(0)} '
         'stats=${jsonEncode(c.stats)}');
     if (c.status.isNotEmpty) {
@@ -340,8 +343,8 @@ Future<void> _inspect(List<String> args) async {
         (e) => e.seq == int.parse(turnSeq) && e.type == EventType.turnCommitted,
         orElse: () => throw StateError('no TurnCommitted at seq $turnSeq'));
     stdout.writeln('\n=== TurnDebugReport for seq $turnSeq (§9) ===');
-    stdout.writeln(const JsonEncoder.withIndent('  ')
-        .convert(turn.cause['debug_report']));
+    stdout.writeln(
+        const JsonEncoder.withIndent('  ').convert(turn.cause['debug_report']));
   }
   await repo.close();
 }

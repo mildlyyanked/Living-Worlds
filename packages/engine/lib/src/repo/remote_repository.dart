@@ -108,9 +108,7 @@ class RemoteRepository implements WorldRepository {
     );
     if (resp.statusCode >= 300) _fail('eventsUpTo', resp);
     final rows = jsonDecode(resp.body) as List<Object?>;
-    return [
-      for (final r in rows) _rowToEvent(r! as Map<String, Object?>)
-    ];
+    return [for (final r in rows) _rowToEvent(r! as Map<String, Object?>)];
   }
 
   @override
@@ -121,9 +119,7 @@ class RemoteRepository implements WorldRepository {
     );
     if (resp.statusCode >= 300) _fail('revertedSeqs', resp);
     final rows = jsonDecode(resp.body) as List<Object?>;
-    return {
-      for (final r in rows) (r! as Map<String, Object?>)['seq'] as int
-    };
+    return {for (final r in rows) (r! as Map<String, Object?>)['seq'] as int};
   }
 
   @override
@@ -181,8 +177,8 @@ class RemoteRepository implements WorldRepository {
   @override
   Future<WorldProjection> projection({int? atSeq}) async {
     final events = await eventsUpTo(atSeq ?? -1);
-    final p = WorldProjection.replay(events,
-        revertedSeqs: await revertedSeqs());
+    final p =
+        WorldProjection.replay(events, revertedSeqs: await revertedSeqs());
     // Attach stored embeddings.
     final resp = await _http.get(
       Uri.parse(
@@ -248,8 +244,8 @@ class RemoteRepository implements WorldRepository {
             (freeText == null ||
                 w.title.toLowerCase().contains(freeText.toLowerCase()) ||
                 w.body.toLowerCase().contains(freeText.toLowerCase()) ||
-                w.tags.any((t) =>
-                    t.toLowerCase().contains(freeText.toLowerCase()))))
+                w.tags.any(
+                    (t) => t.toLowerCase().contains(freeText.toLowerCase()))))
           w
     ];
   }

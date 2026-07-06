@@ -18,8 +18,8 @@ import 'helpers/repository_suite.dart';
 void main() {
   runRepositorySuite('InMemoryRepository', () async => InMemoryRepository());
 
-  runRepositorySuite(
-      'LocalRepository(sqlite, memory)', () async => LocalRepository.inMemory());
+  runRepositorySuite('LocalRepository(sqlite, memory)',
+      () async => LocalRepository.inMemory());
 
   runRepositorySuite('LocalRepository(sqlite, file)', () async {
     final dir = await Directory.systemTemp.createTemp('lw_repo_test');
@@ -27,7 +27,8 @@ void main() {
     return LocalRepository.open('${dir.path}/world.db');
   });
 
-  test('cross-implementation parity: identical playthrough, identical '
+  test(
+      'cross-implementation parity: identical playthrough, identical '
       'projections', () async {
     Future<String> playthrough(WorldRepository repo) async {
       await seededRepo(repo);

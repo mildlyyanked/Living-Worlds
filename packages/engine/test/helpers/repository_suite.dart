@@ -9,8 +9,7 @@ import 'package:test/test.dart';
 
 import 'fixtures.dart';
 
-void runRepositorySuite(
-    String name, Future<WorldRepository> Function() make) {
+void runRepositorySuite(String name, Future<WorldRepository> Function() make) {
   group('repository conformance: $name', () {
     late WorldRepository repo;
 
@@ -32,8 +31,8 @@ void runRepositorySuite(
       expect(events, isNotEmpty);
       expect(events.first.type, EventType.worldCreated);
       // Payload fidelity through storage.
-      final world = World.fromJson(
-          events.first.payload['world'] as Map<String, Object?>);
+      final world =
+          World.fromJson(events.first.payload['world'] as Map<String, Object?>);
       expect(world.name, 'Testhaven');
       expect(world.seed, 42);
       // Seq are dense and ordered.
@@ -55,8 +54,8 @@ void runRepositorySuite(
         payload: const {'timeline': 'ash', 'upto_seq': 0, 'summary': ''},
         createdAt: t0,
       );
-      await expectLater(repo.appendEvent(bad),
-          throwsA(isA<WorldRepositoryException>()));
+      await expectLater(
+          repo.appendEvent(bad), throwsA(isA<WorldRepositoryException>()));
     });
 
     test('atomic batch: partial failure commits nothing', () async {
@@ -165,12 +164,9 @@ void runRepositorySuite(
           category: 'Characters',
           body: 'A smuggler with a code.'));
 
-      expect(await repo.structuredWikiQuery(title: 'the gullet'),
-          hasLength(1));
-      expect(await repo.structuredWikiQuery(category: 'Places'),
-          hasLength(1));
-      expect(await repo.structuredWikiQuery(freeText: 'smug'),
-          hasLength(2));
+      expect(await repo.structuredWikiQuery(title: 'the gullet'), hasLength(1));
+      expect(await repo.structuredWikiQuery(category: 'Places'), hasLength(1));
+      expect(await repo.structuredWikiQuery(freeText: 'smug'), hasLength(2));
       expect(await repo.structuredWikiQuery(title: 'nope'), isEmpty);
     });
 

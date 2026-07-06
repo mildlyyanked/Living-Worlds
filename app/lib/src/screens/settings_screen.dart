@@ -24,8 +24,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context, _) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Narrator (LLM)',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Narrator (LLM)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             RadioGroup<LlmMode>(
               groupValue: settings.llmMode,
               onChanged: (v) => settings.update((s) => s.llmMode = v!),
@@ -33,20 +35,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   RadioListTile<LlmMode>(
                     title: Text('Offline narrator'),
-                    subtitle: Text('No network. Deterministic canned prose — '
-                        'engine still runs everything.'),
+                    subtitle: Text(
+                      'No network. Deterministic canned prose — '
+                      'engine still runs everything.',
+                    ),
                     value: LlmMode.offline,
                   ),
                   RadioListTile<LlmMode>(
                     title: Text('OpenRouter (dev key on device)'),
-                    subtitle: Text('Dev-only direct path — the key lives on '
-                        'this device (§7).'),
+                    subtitle: Text(
+                      'Dev-only direct path — the key lives on '
+                      'this device (§7).',
+                    ),
                     value: LlmMode.openRouterDirect,
                   ),
                   RadioListTile<LlmMode>(
                     title: Text('Supabase key vault (production)'),
                     subtitle: Text(
-                        'Completions proxied; keys never touch the app.'),
+                      'Completions proxied; keys never touch the app.',
+                    ),
                     value: LlmMode.supabaseProxy,
                   ),
                 ],
@@ -57,40 +64,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
               TextFormField(
                 initialValue: settings.openRouterKey,
                 obscureText: true,
-                decoration:
-                    const InputDecoration(labelText: 'OpenRouter API key'),
+                decoration: const InputDecoration(
+                  labelText: 'OpenRouter API key',
+                ),
                 onChanged: (v) => settings.update((s) => s.openRouterKey = v),
               ),
             if (settings.llmMode == LlmMode.supabaseProxy) ...[
               TextFormField(
                 initialValue: settings.supabaseUrl,
                 decoration: const InputDecoration(
-                    labelText: 'Supabase URL',
-                    hintText: 'https://xyz.supabase.co'),
+                  labelText: 'Supabase URL',
+                  hintText: 'https://xyz.supabase.co',
+                ),
                 onChanged: (v) => settings.update((s) => s.supabaseUrl = v),
               ),
               TextFormField(
                 initialValue: settings.supabaseAnonKey,
                 obscureText: true,
-                decoration:
-                    const InputDecoration(labelText: 'Supabase anon key'),
-                onChanged: (v) =>
-                    settings.update((s) => s.supabaseAnonKey = v),
+                decoration: const InputDecoration(
+                  labelText: 'Supabase anon key',
+                ),
+                onChanged: (v) => settings.update((s) => s.supabaseAnonKey = v),
               ),
             ],
             if (settings.llmMode != LlmMode.offline)
               TextFormField(
                 initialValue: settings.model,
                 decoration: const InputDecoration(
-                    labelText: 'Model (pin a tool-calling-reliable one, §14)'),
+                  labelText: 'Model (pin a tool-calling-reliable one, §14)',
+                ),
                 onChanged: (v) => settings.update((s) => s.model = v),
               ),
             const Divider(height: 32),
             SwitchListTile(
               key: const Key('debug-toggle'),
               title: const Text('Debug panel'),
-              subtitle: const Text('Show the full turn transaction: raw LLM '
-                  'output, per-delta decisions, death eval, context tokens.'),
+              subtitle: const Text(
+                'Show the full turn transaction: raw LLM '
+                'output, per-delta decisions, death eval, context tokens.',
+              ),
               value: settings.debugPanel,
               onChanged: (v) => settings.update((s) => s.debugPanel = v),
             ),
@@ -102,8 +114,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 divisions: 15,
                 value: settings.contextBudgetTokens.toDouble(),
                 label: '${settings.contextBudgetTokens}',
-                onChanged: (v) => settings
-                    .update((s) => s.contextBudgetTokens = v.round()),
+                onChanged: (v) =>
+                    settings.update((s) => s.contextBudgetTokens = v.round()),
               ),
             ),
           ],

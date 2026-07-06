@@ -22,8 +22,7 @@ import 'config.dart';
 
 /// Severity of a status after decay, evaluated at [atClock] (subjective
 /// minutes). Never negative.
-double effectiveSeverity(
-    StatusInstance status, StatusDef? def, int atClock) {
+double effectiveSeverity(StatusInstance status, StatusDef? def, int atClock) {
   final decay = def?.decayPerMin;
   if (decay == null || decay == 0) return math.max(0, status.severity);
   final elapsed = math.max(0, atClock - status.sinceClock);
@@ -39,7 +38,8 @@ double healthOf(Character c, WorldSchema schema, EngineConfig config,
     {int? atClock}) {
   final clock = atClock ?? c.subjectiveClock;
 
-  var health = c.stats[config.baseVitalityStatKey] ?? config.defaultBaseVitality;
+  var health =
+      c.stats[config.baseVitalityStatKey] ?? config.defaultBaseVitality;
 
   for (final status in c.status) {
     final def = schema.statusDef(status.key);

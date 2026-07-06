@@ -108,8 +108,10 @@ class WorldProjection {
     return maxClock;
   }
 
-  List<TurnRecord> turnsFor(String timeline) =>
-      [for (final t in turnHistory) if (t.timeline == timeline) t];
+  List<TurnRecord> turnsFor(String timeline) => [
+        for (final t in turnHistory)
+          if (t.timeline == timeline) t
+      ];
 
   /// Shared events involving [characterId], ordered by canon time.
   List<SharedEventRecord> sharedEventsFor(String characterId) {
@@ -144,8 +146,8 @@ class WorldProjection {
   void applyEvent(Event e) {
     switch (e.type) {
       case EventType.worldCreated:
-        world = World.fromJson(e.payload['world'] as Map<String, Object?>? ??
-            e.payload);
+        world = World.fromJson(
+            e.payload['world'] as Map<String, Object?>? ?? e.payload);
       case EventType.characterCreated:
         final c = Character.fromJson(
             e.payload['character'] as Map<String, Object?>? ?? e.payload);
@@ -233,7 +235,10 @@ class WorldProjection {
     if (c == null) return;
     final key = p['key'] as String;
     final op = p['op'] as String;
-    final status = [for (final s in c.status) if (s.key != key) s];
+    final status = [
+      for (final s in c.status)
+        if (s.key != key) s
+    ];
     if (op == 'add' || op == 'set') {
       status.add(StatusInstance(
         key: key,
@@ -250,7 +255,10 @@ class WorldProjection {
     final instance =
         ItemInstance.fromJson(p['instance'] as Map<String, Object?>);
     // Idempotent: instance uid is unique per grant.
-    final inventory = [for (final i in c.inventory) if (i.uid != instance.uid) i];
+    final inventory = [
+      for (final i in c.inventory)
+        if (i.uid != instance.uid) i
+    ];
     inventory.add(instance);
     characters[c.id] = c.copyWith(inventory: inventory);
   }
@@ -276,8 +284,7 @@ class WorldProjection {
     final to = p['to_char'] as String;
     final key = edgeKey(from, to);
     final existing = edges[key] ??
-        RelationshipEdge(
-            worldId: world?.id ?? '', fromChar: from, toChar: to);
+        RelationshipEdge(worldId: world?.id ?? '', fromChar: from, toChar: to);
     final dims = Map<String, double>.of(existing.dims);
     dims[p['dim'] as String] = (p['to'] as num).toDouble();
     final notes = List<String>.of(existing.notes);
@@ -292,8 +299,10 @@ class WorldProjection {
     final c = characters[p['char_id'] as String];
     if (c == null) return;
     final questId = p['quest_id'] as String;
-    final stepsDone =
-        {for (final s in p['steps_done'] as List<Object?>? ?? <Object?>[]) s! as String};
+    final stepsDone = {
+      for (final s in p['steps_done'] as List<Object?>? ?? <Object?>[])
+        s! as String
+    };
     final resultingState = p['resulting_state'] as String?;
     final quests = <Quest>[];
     for (final q in c.quests) {
@@ -354,8 +363,7 @@ class WorldProjection {
     final charId = p['char_id'] as String;
     final c = characters[charId];
     if (c != null) {
-      characters[charId] =
-          c.copyWith(subjectiveClock: p['to_clock'] as int);
+      characters[charId] = c.copyWith(subjectiveClock: p['to_clock'] as int);
     }
   }
 
@@ -372,7 +380,9 @@ class WorldProjection {
         'characters': {
           for (final e in characters.entries) e.key: e.value.toJson()
         },
-        'item_defs': {for (final e in itemDefs.entries) e.key: e.value.toJson()},
+        'item_defs': {
+          for (final e in itemDefs.entries) e.key: e.value.toJson()
+        },
         'wiki': {for (final e in wiki.entries) e.key: e.value.toJson()},
         'edges': {for (final e in edges.entries) e.key: e.value.toJson()},
         'pending_candidates': {

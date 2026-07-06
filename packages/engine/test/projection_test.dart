@@ -178,9 +178,7 @@ void main() {
         timeline: 'ash',
         subjectiveClock: 500,
         type: EventType.characterCreated,
-        payload: {
-          'character': ash().copyWith(subjectiveClock: 500).toJson()
-        },
+        payload: {'character': ash().copyWith(subjectiveClock: 500).toJson()},
         createdAt: t0,
       ));
       p.applyEvent(Event(
@@ -190,9 +188,7 @@ void main() {
         timeline: 'brynn',
         subjectiveClock: 100,
         type: EventType.characterCreated,
-        payload: {
-          'character': brynn().copyWith(subjectiveClock: 100).toJson()
-        },
+        payload: {'character': brynn().copyWith(subjectiveClock: 100).toJson()},
         createdAt: t0,
       ));
       expect(p.worldClock, 500);

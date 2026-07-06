@@ -12,8 +12,8 @@ void main() {
     });
 
     test('different seeds diverge', () {
-      expect(SplitMix64(1).nextInt64(),
-          isNot(equals(SplitMix64(2).nextInt64())));
+      expect(
+          SplitMix64(1).nextInt64(), isNot(equals(SplitMix64(2).nextInt64())));
     });
 
     test('nextDouble stays in [0, 1)', () {

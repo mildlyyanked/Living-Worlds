@@ -118,8 +118,7 @@ class LocalRepository implements WorldRepository {
         timeline: row['timeline'] as String,
         subjectiveClock: row['subjective_clock'] as int,
         type: EventType.values.byName(row['type'] as String),
-        payload:
-            jsonDecode(row['payload'] as String) as Map<String, Object?>,
+        payload: jsonDecode(row['payload'] as String) as Map<String, Object?>,
         cause: jsonDecode(row['cause'] as String) as Map<String, Object?>,
         createdAt: DateTime.parse(row['created_at'] as String),
       );
@@ -128,8 +127,7 @@ class LocalRepository implements WorldRepository {
   Future<List<Event>> eventsUpTo(int seq) async {
     final rows = seq < 0
         ? _db.select('SELECT * FROM events ORDER BY seq')
-        : _db.select(
-            'SELECT * FROM events WHERE seq <= ? ORDER BY seq', [seq]);
+        : _db.select('SELECT * FROM events WHERE seq <= ? ORDER BY seq', [seq]);
     return [for (final r in rows) _rowToEvent(r)];
   }
 
@@ -146,18 +144,15 @@ class LocalRepository implements WorldRepository {
         '(SELECT seq FROM revert_markers)',
         [afterSeq]);
     for (final r in rows) {
-      _db.execute(
-          'INSERT INTO revert_markers (seq) VALUES (?)', [r['seq']]);
+      _db.execute('INSERT INTO revert_markers (seq) VALUES (?)', [r['seq']]);
     }
     return rows.length;
   }
 
   @override
   Future<int> unrevertUpTo(int uptoSeq) async {
-    final n = _db
-        .select('SELECT COUNT(*) c FROM revert_markers WHERE seq <= ?',
-            [uptoSeq])
-        .first['c'] as int;
+    final n = _db.select('SELECT COUNT(*) c FROM revert_markers WHERE seq <= ?',
+        [uptoSeq]).first['c'] as int;
     _db.execute('DELETE FROM revert_markers WHERE seq <= ?', [uptoSeq]);
     return n;
   }
@@ -173,7 +168,8 @@ class LocalRepository implements WorldRepository {
   @override
   Future<WorldProjection> projection({int? atSeq}) async {
     final events = await eventsUpTo(atSeq ?? -1);
-    final p = WorldProjection.replay(events, revertedSeqs: await revertedSeqs());
+    final p =
+        WorldProjection.replay(events, revertedSeqs: await revertedSeqs());
     for (final r in _db.select('SELECT entry_id, vector FROM embeddings')) {
       final entry = p.wiki[r['entry_id'] as String];
       if (entry != null) {
@@ -203,8 +199,8 @@ class LocalRepository implements WorldRepository {
             (freeText == null ||
                 w.title.toLowerCase().contains(freeText.toLowerCase()) ||
                 w.body.toLowerCase().contains(freeText.toLowerCase()) ||
-                w.tags.any((t) =>
-                    t.toLowerCase().contains(freeText.toLowerCase()))))
+                w.tags.any(
+                    (t) => t.toLowerCase().contains(freeText.toLowerCase()))))
           w
     ];
   }
@@ -240,8 +236,7 @@ class LocalRepository implements WorldRepository {
 
   @override
   Future<String> loadWorldSnapshot(String id) async {
-    final rows =
-        _db.select('SELECT blob FROM snapshots WHERE id = ?', [id]);
+    final rows = _db.select('SELECT blob FROM snapshots WHERE id = ?', [id]);
     if (rows.isEmpty) {
       throw WorldRepositoryException('no snapshot with id "$id"');
     }

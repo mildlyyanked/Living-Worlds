@@ -174,10 +174,7 @@ class WorldSchema {
         ],
         statusDefs: [
           StatusDef(
-              key: 'bleeding',
-              label: 'Bleeding',
-              decayPerMin: 0.02,
-              weight: 8),
+              key: 'bleeding', label: 'Bleeding', decayPerMin: 0.02, weight: 8),
           StatusDef(key: 'injured', label: 'Injured', weight: 10),
           StatusDef(
               key: 'poisoned',
@@ -186,7 +183,10 @@ class WorldSchema {
               weight: 6,
               lethalSeverity: 10),
           StatusDef(
-              key: 'rested', label: 'Well Rested', weight: -5, decayPerMin: 0.05),
+              key: 'rested',
+              label: 'Well Rested',
+              weight: -5,
+              decayPerMin: 0.05),
           StatusDef(
               key: 'blessed', label: 'Blessed', weight: -8, decayPerMin: 0.01),
         ],

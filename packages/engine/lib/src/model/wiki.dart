@@ -34,8 +34,9 @@ class WikiEntry {
   /// One line for the always-in-context compact index (§5.3.1).
   String get summaryLine {
     final firstLine = body.split('\n').first;
-    final oneLiner =
-        firstLine.length <= 100 ? firstLine : '${firstLine.substring(0, 97)}...';
+    final oneLiner = firstLine.length <= 100
+        ? firstLine
+        : '${firstLine.substring(0, 97)}...';
     return '[$category] $title — $oneLiner';
   }
 

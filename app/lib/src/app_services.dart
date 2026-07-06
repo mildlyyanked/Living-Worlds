@@ -54,10 +54,10 @@ class AppServices {
     EmbeddingClient Function(AppSettings settings)? embedderFactory,
     Future<Directory> Function()? worldsDirProvider,
     this.scanDiskWorlds = true,
-  })  : _repoFactory = repoFactory ?? _defaultRepoFactory,
-        _llmFactory = llmFactory ?? _defaultLlmFactory,
-        _embedderFactory = embedderFactory ?? ((_) => FixtureEmbeddingClient()),
-        _worldsDir = worldsDirProvider ?? _defaultWorldsDir;
+  }) : _repoFactory = repoFactory ?? _defaultRepoFactory,
+       _llmFactory = llmFactory ?? _defaultLlmFactory,
+       _embedderFactory = embedderFactory ?? ((_) => FixtureEmbeddingClient()),
+       _worldsDir = worldsDirProvider ?? _defaultWorldsDir;
 
   /// Widget tests run in a fake-async zone where real disk IO never
   /// completes; they set this false and use in-memory worlds only.
@@ -82,18 +82,18 @@ class AppServices {
   }
 
   static LlmClient _defaultLlmFactory(AppSettings s) => switch (s.llmMode) {
-        LlmMode.offline => OfflineNarratorLlm(),
-        LlmMode.openRouterDirect => OpenRouterLlmClient(
-            baseUrl: 'https://openrouter.ai/api/v1',
-            apiKey: s.openRouterKey,
-            model: s.model,
-          ),
-        LlmMode.supabaseProxy => OpenRouterLlmClient(
-            baseUrl: '${s.supabaseUrl}/functions/v1/llm-proxy',
-            apiKey: s.supabaseAnonKey,
-            model: s.model,
-          ),
-      };
+    LlmMode.offline => OfflineNarratorLlm(),
+    LlmMode.openRouterDirect => OpenRouterLlmClient(
+      baseUrl: 'https://openrouter.ai/api/v1',
+      apiKey: s.openRouterKey,
+      model: s.model,
+    ),
+    LlmMode.supabaseProxy => OpenRouterLlmClient(
+      baseUrl: '${s.supabaseUrl}/functions/v1/llm-proxy',
+      apiKey: s.supabaseAnonKey,
+      model: s.model,
+    ),
+  };
 
   LlmClient buildLlm() => _llmFactory(settings);
   EmbeddingClient buildEmbedder() => _embedderFactory(settings);
@@ -108,7 +108,8 @@ class AppServices {
       final p = await entry.value.projection();
       if (p.world != null) {
         refs.add(
-            WorldRef(id: p.world!.id, name: p.world!.name, path: 'memory'));
+          WorldRef(id: p.world!.id, name: p.world!.name, path: 'memory'),
+        );
       }
     }
     if (scanDiskWorlds) {
@@ -120,7 +121,8 @@ class AppServices {
           final p = await repo.projection();
           if (p.world != null && !refs.any((r) => r.id == p.world!.id)) {
             refs.add(
-                WorldRef(id: p.world!.id, name: p.world!.name, path: f.path));
+              WorldRef(id: p.world!.id, name: p.world!.name, path: f.path),
+            );
           }
         } finally {
           await repo.close();
@@ -140,29 +142,33 @@ class AppServices {
     bool inMemory = false,
   }) async {
     final id = 'world-${DateTime.now().millisecondsSinceEpoch}';
-    final path = inMemory
-        ? 'memory'
-        : '${(await _worldsDir()).path}/$id.db';
+    final path = inMemory ? 'memory' : '${(await _worldsDir()).path}/$id.db';
     final repo = _repoFactory(path);
     _open[id] = repo;
 
     final service = WorldService(repo);
-    await service.createWorld(World(
-      id: id,
-      name: name,
-      seed: seed ?? DateTime.now().millisecondsSinceEpoch & 0xFFFFFF,
-      createdAt: DateTime.now().toUtc(),
-      schema: WorldSchema.standard(),
-    ));
-    final charId =
-        characterName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
-    await service.createCharacter(Character(
-      id: charId,
-      worldId: id,
-      name: characterName,
-      bio: 'A newcomer to $name.',
-      stats: const {'vitality': 100, 'hunger': 0, 'fatigue': 0, 'coin': 10},
-    ));
+    await service.createWorld(
+      World(
+        id: id,
+        name: name,
+        seed: seed ?? DateTime.now().millisecondsSinceEpoch & 0xFFFFFF,
+        createdAt: DateTime.now().toUtc(),
+        schema: WorldSchema.standard(),
+      ),
+    );
+    final charId = characterName.toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9]+'),
+      '-',
+    );
+    await service.createCharacter(
+      Character(
+        id: charId,
+        worldId: id,
+        name: characterName,
+        bio: 'A newcomer to $name.',
+        stats: const {'vitality': 100, 'hunger': 0, 'fatigue': 0, 'coin': 10},
+      ),
+    );
     for (final def in _starterItems(id)) {
       await service.createItemDef(def);
     }
@@ -170,32 +176,34 @@ class AppServices {
   }
 
   static List<ItemDef> _starterItems(String worldId) => [
-        ItemDef(
-            id: 'item-rusty-key',
-            worldId: worldId,
-            name: 'rusty key',
-            desc: 'Opens something old.',
-            affordances: const ['unlock'],
-            stackable: false),
-        ItemDef(
-            id: 'item-potion',
-            worldId: worldId,
-            name: 'healing potion',
-            desc: 'Staunches wounds and lifts fatigue.',
-            affordances: const ['heal'],
-            effects: const [
-              ItemEffect(
-                  onUse: 'heal', statusKey: 'bleeding', statusOp: 'remove'),
-              ItemEffect(onUse: 'heal', statKey: 'fatigue', statDelta: -20),
-            ],
-            consumable: true),
-        ItemDef(
-            id: 'item-lantern',
-            worldId: worldId,
-            name: 'storm lantern',
-            desc: 'Light in dark places.',
-            affordances: const ['light']),
-      ];
+    ItemDef(
+      id: 'item-rusty-key',
+      worldId: worldId,
+      name: 'rusty key',
+      desc: 'Opens something old.',
+      affordances: const ['unlock'],
+      stackable: false,
+    ),
+    ItemDef(
+      id: 'item-potion',
+      worldId: worldId,
+      name: 'healing potion',
+      desc: 'Staunches wounds and lifts fatigue.',
+      affordances: const ['heal'],
+      effects: const [
+        ItemEffect(onUse: 'heal', statusKey: 'bleeding', statusOp: 'remove'),
+        ItemEffect(onUse: 'heal', statKey: 'fatigue', statDelta: -20),
+      ],
+      consumable: true,
+    ),
+    ItemDef(
+      id: 'item-lantern',
+      worldId: worldId,
+      name: 'storm lantern',
+      desc: 'Light in dark places.',
+      affordances: const ['light'],
+    ),
+  ];
 }
 
 /// Offline narrator: deterministic canned improv so the whole app is usable
@@ -212,7 +220,8 @@ class OfflineNarratorLlm implements LlmClient {
   }) async {
     _n++;
     final output = TurnOutput(
-      narrative: 'You $userInput. The world holds its breath, then lets it '
+      narrative:
+          'You $userInput. The world holds its breath, then lets it '
           'out; nothing bites you today. (offline narrator, turn $_n)',
       proposedDeltas: const ProposedDeltas(clockAdvanceMinutes: 30),
     );
@@ -242,11 +251,9 @@ class AppScope extends InheritedWidget {
 
   final AppServices services;
 
-  static AppServices of(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<AppScope>()!
-      .services;
+  static AppServices of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppScope>()!.services;
 
   @override
-  bool updateShouldNotify(AppScope oldWidget) =>
-      services != oldWidget.services;
+  bool updateShouldNotify(AppScope oldWidget) => services != oldWidget.services;
 }

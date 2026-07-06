@@ -80,12 +80,16 @@ class WorldService {
           'wiki entry "${updated.id}" does not exist; use createWikiEntry');
     }
     _requireValidCategory(p, updated.category);
-    final next = updated.copyWith(
-        version: existing.version + 1, updatedAt: _clock());
-    return _append(updated.worldId, EventType.wikiUpdated, {
-      'entry': next.toJson(),
-      'from_version': existing.version,
-    }, cause: cause);
+    final next =
+        updated.copyWith(version: existing.version + 1, updatedAt: _clock());
+    return _append(
+        updated.worldId,
+        EventType.wikiUpdated,
+        {
+          'entry': next.toJson(),
+          'from_version': existing.version,
+        },
+        cause: cause);
   }
 
   /// Promote a queued gameplay candidate into a real entry (§5.2). The
@@ -93,8 +97,7 @@ class WorldService {
   Future<Event> promoteCandidate(String candidateId, WikiEntry asEntry) async {
     final p = await repo.projection();
     if (!p.pendingCandidates.containsKey(candidateId)) {
-      throw WorldRepositoryException(
-          'no pending candidate "$candidateId"');
+      throw WorldRepositoryException('no pending candidate "$candidateId"');
     }
     _requireValidCategory(p, asEntry.category);
     return _append(asEntry.worldId, EventType.wikiCandidatePromoted, {
@@ -106,8 +109,7 @@ class WorldService {
   Future<Event> rejectCandidate(String worldId, String candidateId) async {
     final p = await repo.projection();
     if (!p.pendingCandidates.containsKey(candidateId)) {
-      throw WorldRepositoryException(
-          'no pending candidate "$candidateId"');
+      throw WorldRepositoryException('no pending candidate "$candidateId"');
     }
     return _append(worldId, EventType.wikiCandidateRejected,
         {'candidate_id': candidateId});

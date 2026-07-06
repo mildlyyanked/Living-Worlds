@@ -14,8 +14,11 @@ import 'world_screen.dart';
 enum _Overlay { none, inventory, quests, relationships }
 
 class GameplayScreen extends StatefulWidget {
-  const GameplayScreen(
-      {super.key, required this.store, required this.characterId});
+  const GameplayScreen({
+    super.key,
+    required this.store,
+    required this.characterId,
+  });
 
   final WorldStore store;
   final String characterId;
@@ -57,20 +60,24 @@ class _GameplayScreenState extends State<GameplayScreen> {
     );
     if (turn == null) return; // error surfaced via store.lastError
     setState(() {
-      _session.add(ChatItem(
-        userInput: text,
-        narrative: turn.narrative,
-        notifications: turn.notifications,
-        report: turn.report,
-        turnSeq: turn.turnSeq,
-        died: turn.died,
-      ));
+      _session.add(
+        ChatItem(
+          userInput: text,
+          narrative: turn.narrative,
+          notifications: turn.notifications,
+          report: turn.report,
+          turnSeq: turn.turnSeq,
+          died: turn.died,
+        ),
+      );
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut);
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -84,7 +91,8 @@ class _GameplayScreenState extends State<GameplayScreen> {
         final character = p?.characters[widget.characterId];
         if (p == null || character == null) {
           return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
         final settings = AppScope.of(context).settings;
         final wide = MediaQuery.sizeOf(context).width > 700;
@@ -112,8 +120,10 @@ class _GameplayScreenState extends State<GameplayScreen> {
             title: Text(character.name),
             actions: [
               Center(
-                child: Text(formatClock(character.subjectiveClock),
-                    key: const Key('actor-clock')),
+                child: Text(
+                  formatClock(character.subjectiveClock),
+                  key: const Key('actor-clock'),
+                ),
               ),
               IconButton(
                 key: const Key('overlay-inventory'),
@@ -121,10 +131,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
                 color: _overlay == _Overlay.inventory
                     ? Theme.of(context).colorScheme.primary
                     : null,
-                onPressed: () => setState(() => _overlay =
-                    _overlay == _Overlay.inventory
-                        ? _Overlay.none
-                        : _Overlay.inventory),
+                onPressed: () => setState(
+                  () => _overlay = _overlay == _Overlay.inventory
+                      ? _Overlay.none
+                      : _Overlay.inventory,
+                ),
               ),
               IconButton(
                 key: const Key('overlay-quests'),
@@ -132,10 +143,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
                 color: _overlay == _Overlay.quests
                     ? Theme.of(context).colorScheme.primary
                     : null,
-                onPressed: () => setState(() => _overlay =
-                    _overlay == _Overlay.quests
-                        ? _Overlay.none
-                        : _Overlay.quests),
+                onPressed: () => setState(
+                  () => _overlay = _overlay == _Overlay.quests
+                      ? _Overlay.none
+                      : _Overlay.quests,
+                ),
               ),
               IconButton(
                 key: const Key('overlay-relationships'),
@@ -143,10 +155,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
                 color: _overlay == _Overlay.relationships
                     ? Theme.of(context).colorScheme.primary
                     : null,
-                onPressed: () => setState(() => _overlay =
-                    _overlay == _Overlay.relationships
-                        ? _Overlay.none
-                        : _Overlay.relationships),
+                onPressed: () => setState(
+                  () => _overlay = _overlay == _Overlay.relationships
+                      ? _Overlay.none
+                      : _Overlay.relationships,
+                ),
               ),
             ],
           ),
@@ -198,8 +211,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
     // Undo to just before the last committed turn (the fatal one).
     final events = await store.repo.eventsUpTo(-1);
     final lastTurn = events.lastWhere(
-        (e) => e.type == EventType.turnCommitted,
-        orElse: () => events.last);
+      (e) => e.type == EventType.turnCommitted,
+      orElse: () => events.last,
+    );
     await store.undoToSeq(lastTurn.seq - 1);
     setState(() {
       if (_session.isNotEmpty) _session.removeLast();
@@ -242,8 +256,10 @@ class _ChatColumn extends StatelessWidget {
                   color: Theme.of(context).colorScheme.errorContainer,
                   child: Padding(
                     padding: const EdgeInsets.all(12),
-                    child: Text('Turn failed (nothing committed): '
-                        '${store.lastError}'),
+                    child: Text(
+                      'Turn failed (nothing committed): '
+                      '${store.lastError}',
+                    ),
                   ),
                 ),
               if (dead)
@@ -254,8 +270,10 @@ class _ChatColumn extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     child: Column(
                       children: [
-                        Text('${character.name} has died. '
-                            'This timeline is frozen.'),
+                        Text(
+                          '${character.name} has died. '
+                          'This timeline is frozen.',
+                        ),
                         TextButton(
                           key: const Key('undo-death'),
                           onPressed: onUndoDeath,
@@ -380,8 +398,7 @@ class _InfoPanel extends StatelessWidget {
             const Text('Health'),
             const SizedBox(width: 8),
             Expanded(
-              child: LinearProgressIndicator(
-                  value: health / 100, minHeight: 8),
+              child: LinearProgressIndicator(value: health / 100, minHeight: 8),
             ),
             const SizedBox(width: 8),
             Text('${health.round()}', key: const Key('health-value')),
@@ -393,10 +410,7 @@ class _InfoPanel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(s.key),
-                Text(s.value.toStringAsFixed(0)),
-              ],
+              children: [Text(s.key), Text(s.value.toStringAsFixed(0))],
             ),
           ),
         if (character.status.isNotEmpty) ...[
@@ -407,15 +421,21 @@ class _InfoPanel extends StatelessWidget {
               dense: true,
               contentPadding: EdgeInsets.zero,
               title: Text(schema.statusDef(s.key)?.label ?? s.key),
-              trailing: Text(effectiveSeverity(s, schema.statusDef(s.key),
-                      character.subjectiveClock)
-                  .toStringAsFixed(1)),
+              trailing: Text(
+                effectiveSeverity(
+                  s,
+                  schema.statusDef(s.key),
+                  character.subjectiveClock,
+                ).toStringAsFixed(1),
+              ),
             ),
         ],
         if (others.isNotEmpty) ...[
           const Divider(),
-          Text('Present in scene (cameo, §4.4)',
-              style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            'Present in scene (cameo, §4.4)',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           for (final c in others)
             CheckboxListTile(
               key: Key('present-${c.id}'),
@@ -455,13 +475,16 @@ class _OverlayPanel extends StatelessWidget {
             for (final i in character.inventory)
               ListTile(
                 title: Text(
-                    '${projection.itemDefs[i.defId]?.name ?? i.defId} ×${i.qty}'),
-                subtitle: Text([
-                  projection.itemDefs[i.defId]?.desc ?? '',
-                  if ((projection.itemDefs[i.defId]?.affordances ?? [])
-                      .isNotEmpty)
-                    'enables: ${projection.itemDefs[i.defId]!.affordances.join(', ')}',
-                ].where((s) => s.isNotEmpty).join('\n')),
+                  '${projection.itemDefs[i.defId]?.name ?? i.defId} ×${i.qty}',
+                ),
+                subtitle: Text(
+                  [
+                    projection.itemDefs[i.defId]?.desc ?? '',
+                    if ((projection.itemDefs[i.defId]?.affordances ?? [])
+                        .isNotEmpty)
+                      'enables: ${projection.itemDefs[i.defId]!.affordances.join(', ')}',
+                  ].where((s) => s.isNotEmpty).join('\n'),
+                ),
                 isThreeLine: true,
               ),
           ],
@@ -480,16 +503,19 @@ class _OverlayPanel extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${q.title} — ${q.state.name}',
-                          style: Theme.of(context).textTheme.titleSmall),
+                      Text(
+                        '${q.title} — ${q.state.name}',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
                       for (final s in q.steps)
                         Row(
                           children: [
                             Icon(
-                                s.done
-                                    ? Icons.check_box
-                                    : Icons.check_box_outline_blank,
-                                size: 16),
+                              s.done
+                                  ? Icons.check_box
+                                  : Icons.check_box_outline_blank,
+                              size: 16,
+                            ),
                             const SizedBox(width: 6),
                             Expanded(child: Text(s.desc)),
                           ],
@@ -502,24 +528,30 @@ class _OverlayPanel extends StatelessWidget {
         );
       case _Overlay.relationships:
         final edges = projection.edges.values
-            .where((e) =>
-                e.fromChar == character.id || e.toChar == character.id)
+            .where(
+              (e) => e.fromChar == character.id || e.toChar == character.id,
+            )
             .toList();
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            Text('Relationships',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Relationships',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             if (edges.isEmpty) const Text('No edges yet.'),
             for (final e in edges)
               ListTile(
                 title: Text(
-                    '${projection.characters[e.fromChar]?.name ?? e.fromChar}'
-                    ' → '
-                    '${projection.characters[e.toChar]?.name ?? e.toChar}'),
-                subtitle: Text(e.dims.entries
-                    .map((d) => '${d.key}: ${d.value.toStringAsFixed(0)}')
-                    .join(' · ')),
+                  '${projection.characters[e.fromChar]?.name ?? e.fromChar}'
+                  ' → '
+                  '${projection.characters[e.toChar]?.name ?? e.toChar}',
+                ),
+                subtitle: Text(
+                  e.dims.entries
+                      .map((d) => '${d.key}: ${d.value.toStringAsFixed(0)}')
+                      .join(' · '),
+                ),
               ),
           ],
         );
