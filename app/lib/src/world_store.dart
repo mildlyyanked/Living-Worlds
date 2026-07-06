@@ -1,0 +1,160 @@
+/// Per-world state holder: wraps the engine's TurnController and services,
+/// exposes actions the UI calls, notifies on every committed change.
+library;
+
+import 'package:flutter/foundation.dart';
+import 'package:living_worlds_engine/living_worlds_engine.dart';
+
+import 'app_services.dart';
+
+/// One rendered chat item in the gameplay window.
+class ChatItem {
+  const ChatItem({
+    required this.userInput,
+    required this.narrative,
+    required this.notifications,
+    required this.report,
+    required this.turnSeq,
+    this.died = false,
+  });
+
+  final String userInput;
+  final String narrative;
+  final List<String> notifications;
+  final TurnDebugReport? report;
+  final int turnSeq;
+  final bool died;
+}
+
+class WorldStore extends ChangeNotifier {
+  WorldStore({
+    required this.services,
+    required this.ref,
+    required this.repo,
+  });
+
+  final AppServices services;
+  final WorldRef ref;
+  final WorldRepository repo;
+
+  WorldProjection? projection;
+  final CostLog costLog = CostLog();
+  bool busy = false;
+  String? lastError;
+
+  static Future<WorldStore> open(AppServices services, WorldRef ref) async {
+    final store = WorldStore(
+        services: services, ref: ref, repo: await services.openRepo(ref));
+    await store.refresh();
+    return store;
+  }
+
+  TurnController _controller() => TurnController(
+        repo: repo,
+        llm: services.buildLlm(),
+        embedder: services.buildEmbedder(),
+        assembler: ContextAssembler(
+            budgetTokens: services.settings.contextBudgetTokens),
+        costLog: costLog,
+      );
+
+  WorldService get worldService => WorldService(repo);
+
+  Future<void> refresh() async {
+    projection = await repo.projection();
+    notifyListeners();
+  }
+
+  Future<T?> _guard<T>(Future<T> Function() action) async {
+    busy = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      return await action();
+    } catch (e) {
+      lastError = '$e';
+      return null;
+    } finally {
+      busy = false;
+      await refresh();
+    }
+  }
+
+  /// Chat history for a character, rebuilt from the log (source of truth).
+  List<ChatItem> chatFor(String characterId) {
+    final p = projection;
+    if (p == null) return const [];
+    final items = <ChatItem>[];
+    for (final t in p.turnsFor(characterId)) {
+      items.add(ChatItem(
+        userInput: t.userInput,
+        narrative: t.narrative,
+        notifications: const [],
+        report: null,
+        turnSeq: t.seq,
+      ));
+    }
+    return items;
+  }
+
+  /// Debug report for a committed turn, straight from the event log (§9).
+  Future<TurnDebugReport?> reportFor(int turnSeq) async {
+    final events = await repo.eventsUpTo(turnSeq);
+    for (final e in events.reversed) {
+      if (e.seq == turnSeq && e.type == EventType.turnCommitted) {
+        final raw = e.cause['debug_report'];
+        if (raw is Map<String, Object?>) return TurnDebugReport.fromJson(raw);
+      }
+    }
+    return null;
+  }
+
+  Future<CommittedTurn?> playTurn({
+    required String actorId,
+    required String input,
+    List<String> presentCharacterIds = const [],
+  }) =>
+      _guard(() => _controller().playTurn(
+            actorId: actorId,
+            userInput: input,
+            presentCharacterIds: presentCharacterIds,
+          ));
+
+  Future<TimeSkipResult?> timeSkip({
+    required String characterId,
+    required TimeSkipTarget target,
+  }) =>
+      _guard(() => TimeSkipGenerator(repo).run(
+            characterId: characterId,
+            target: target,
+            llm: services.buildLlm(),
+          ));
+
+  Future<void> undoToSeq(int seq) async {
+    await _guard(() => repo.revertAfter(seq));
+  }
+
+  Future<void> redoToSeq(int seq) async {
+    await _guard(() => repo.unrevertUpTo(seq));
+  }
+
+  Future<Event?> promoteCandidate(WikiCandidate cand, WikiEntry entry) =>
+      _guard(() => worldService.promoteCandidate(cand.id, entry));
+
+  Future<Event?> rejectCandidate(WikiCandidate cand) =>
+      _guard(() => worldService.rejectCandidate(ref.id, cand.id));
+
+  Future<String?> exportSave() =>
+      _guard(() => const SaveCodec().exportWorld(repo));
+
+  Future<void> saveToSlot(String slot) async {
+    await _guard(() async {
+      final blob = await const SaveCodec().exportWorld(repo);
+      await repo.saveWorldSnapshot(slot, blob);
+    });
+  }
+
+  /// Seeding session bound to this world (§5.1).
+  SeedingSession newSeedingSession() => SeedingSession(
+      repo: repo, llm: services.buildLlm(), worldId: ref.id);
+}

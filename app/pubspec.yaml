@@ -1,0 +1,23 @@
+name: living_worlds
+description: "Living Worlds — LLM-narrated life-sim where the deterministic engine owns every number."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  living_worlds_engine:
+    path: ../packages/engine
+  path_provider: ^2.1.0
+  sqlite3_flutter_libs: ^0.5.20
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

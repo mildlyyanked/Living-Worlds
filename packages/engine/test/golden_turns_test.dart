@@ -128,6 +128,43 @@ void main() {
     expect(a.stats['coin'], 35);
   });
 
+  test('scenario: meeting/cameo — playing with B present writes a '
+      'SharedEvent both timelines must honor (§4.4)', () async {
+    final (controller, repo, _) = await harness([
+      const TurnOutput(
+        narrative: 'You find Brynn at the tavern and split the vault haul.',
+        proposedDeltas: ProposedDeltas(
+          clockAdvanceMinutes: 60,
+          relationships: [
+            RelationshipOp(to: 'brynn', dim: 'trust', delta: 2)
+          ],
+        ),
+      ),
+    ]);
+    final turn = await controller.playTurn(
+      actorId: 'ash',
+      userInput: 'meet brynn at the tavern',
+      presentCharacterIds: const ['brynn'],
+    );
+    expect(turn.died, isFalse);
+
+    final p = await repo.projection();
+    final ashCanon = p.sharedEventsFor('ash');
+    final brynnCanon = p.sharedEventsFor('brynn');
+    expect(ashCanon, hasLength(1));
+    expect(brynnCanon, hasLength(1));
+    expect(brynnCanon.single.summary, contains('split the vault haul'));
+    expect(brynnCanon.single.atClock, 60,
+        reason: 'stamped with the writer\'s post-turn subjective time');
+
+    // When B is later played to that timestamp, the canon is injected as
+    // fixed context (first-writer-wins).
+    final rendezvous = RendezvousService(repo, clock: fixedClock());
+    final canon = rendezvous.fixedCanonFor(
+        projection: p, characterId: 'brynn', atClock: 60);
+    expect(canon, hasLength(1));
+  });
+
   test('scenario: death — lethal stack, timeline frozen, event trail intact',
       () async {
     final (controller, repo, _) = await harness([

@@ -215,6 +215,28 @@ query_inventory. peril is a hint; the engine decides deaths.''';
 
     // 4. Commit events (atomic) -> recompute projection.
     await repo.appendEvents(result.events);
+
+    // Meetings write canon (§4.4): when other characters were present, the
+    // turn's outcome becomes a SharedEvent on every participant's timeline,
+    // stamped with the actor's post-turn subjective time. First-writer-wins.
+    final others = [
+      for (final id in presentCharacterIds)
+        if (id != actorId && projection.characters.containsKey(id)) id
+    ];
+    if (others.isNotEmpty) {
+      final afterTurn = await repo.projection();
+      final narrative = llmResult.output.narrative;
+      await rendezvous.commitSharedEvent(
+        projection: afterTurn,
+        writerId: actorId,
+        participants: [actorId, ...others],
+        summary: narrative.length <= 240
+            ? narrative
+            : '${narrative.substring(0, 237)}...',
+        detail: 'user input: $userInput',
+        cause: {'turn_id': 'turn-${result.events.first.seq}'},
+      );
+    }
     final updated = await repo.projection();
 
     costLog.record(CostLogEntry(
