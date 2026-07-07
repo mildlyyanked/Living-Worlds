@@ -1,4 +1,4 @@
-package io.milesware.living_worlds
+package com.livingworlds
 
 import io.flutter.embedding.android.FlutterActivity
 
