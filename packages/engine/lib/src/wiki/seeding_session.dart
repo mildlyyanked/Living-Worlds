@@ -12,14 +12,23 @@ import '../model/event.dart';
 import '../model/wiki.dart';
 import '../repo/world_repository.dart';
 
-enum SeedingActionKind { clarify, proposeCreate, proposeUpdate, chat }
+enum SeedingActionKind { clarify, chat, propose }
+
+/// One proposed wiki entry within a response. A single response may carry
+/// several, each accepted/committed independently.
+class SeedingProposal {
+  const SeedingProposal({required this.entry, required this.isUpdate});
+
+  final WikiEntry entry;
+  final bool isUpdate;
+}
 
 /// The model's move in the workshop conversation.
 class SeedingAction {
   const SeedingAction({
     required this.kind,
     this.message = '',
-    this.entry,
+    this.proposals = const [],
   });
 
   final SeedingActionKind kind;
@@ -27,8 +36,8 @@ class SeedingAction {
   /// Clarifying question or plain reply.
   final String message;
 
-  /// The proposed entry for proposeCreate/proposeUpdate.
-  final WikiEntry? entry;
+  /// Proposed entries (possibly several) for [SeedingActionKind.propose].
+  final List<SeedingProposal> proposals;
 }
 
 class SeedingSession {
@@ -50,14 +59,20 @@ class SeedingSession {
 You are a world-building workshop assistant. Your only job is to create and
 refine encyclopedia (wiki) entries for a fictional world. Ask clarifying
 questions when an idea is underspecified. Never advance time or touch
-character state. Respond with strict JSON, one of:
+character state.
+
+Respond with STRICT JSON only — no prose outside the JSON — as one of:
 {"action":"clarify","message":"<your question>"}
 {"action":"chat","message":"<short reply>"}
-{"action":"propose_create","entry":{"title":"","category":"<one of: ${categories.join(' | ')}>","body":"","tags":[],"clock_ref":null}}
-{"action":"propose_update","entry":{"id":"<existing id>","title":"","category":"","body":"","tags":[],"clock_ref":null}}''';
+{"action":"propose","entries":[
+  {"op":"create","title":"","category":"<one of: ${categories.join(' | ')}>","body":"","tags":[],"clock_ref":null},
+  {"op":"update","id":"<existing id>","title":"","category":"","body":"","tags":[],"clock_ref":null}
+]}
+You MAY include several entries in one "propose" — the user accepts each
+separately. Prefer "propose" once you have enough detail.''';
 
   /// One workshop exchange: user says something, model replies with a
-  /// clarifying question, chat, or a proposed entry (not yet committed).
+  /// clarifying question, chat, or one-or-more proposed entries (uncommitted).
   Future<SeedingAction> send(String userMessage) async {
     final projection = await repo.projection();
     final categories =
@@ -81,66 +96,121 @@ character state. Respond with strict JSON, one of:
     return _parse(raw, projection.wiki);
   }
 
+  /// Tolerant parse: models sometimes reply in prose despite the JSON
+  /// instruction. Any non-JSON (or unrecognized) response degrades to a chat
+  /// bubble showing the model's text rather than throwing (the reported
+  /// FormatException).
   SeedingAction _parse(String raw, Map<String, WikiEntry> wiki) {
     var text = raw.trim();
     if (text.startsWith('```')) {
       text = text
           .replaceFirst(RegExp(r'^```[a-zA-Z]*\s*'), '')
-          .replaceFirst(RegExp(r'```\s*$'), '');
+          .replaceFirst(RegExp(r'```\s*$'), '')
+          .trim();
     }
-    final json = jsonDecode(text) as Map<String, Object?>;
+
+    Object? decoded;
+    try {
+      decoded = jsonDecode(text);
+    } catch (_) {
+      // Not JSON at all — treat the whole reply as conversational.
+      return SeedingAction(kind: SeedingActionKind.chat, message: raw.trim());
+    }
+    if (decoded is! Map<String, Object?>) {
+      return SeedingAction(kind: SeedingActionKind.chat, message: raw.trim());
+    }
+    final json = decoded;
     final action = json['action'] as String? ?? 'chat';
+
     switch (action) {
       case 'clarify':
         return SeedingAction(
-            kind: SeedingActionKind.clarify,
-            message: json['message'] as String? ?? '');
+          kind: SeedingActionKind.clarify,
+          message: json['message'] as String? ?? '',
+        );
+
+      case 'propose':
+        final rawEntries = json['entries'];
+        final proposals = <SeedingProposal>[
+          if (rawEntries is List)
+            for (final e in rawEntries)
+              if (e is Map<String, Object?>) _proposal(e, wiki),
+          // Back-compat: a single "entry" object under "propose".
+          if (json['entry'] is Map<String, Object?>)
+            _proposal(json['entry']! as Map<String, Object?>, wiki),
+        ];
+        if (proposals.isEmpty) {
+          return SeedingAction(
+            kind: SeedingActionKind.chat,
+            message: json['message'] as String? ?? raw.trim(),
+          );
+        }
+        return SeedingAction(
+          kind: SeedingActionKind.propose,
+          message: json['message'] as String? ?? '',
+          proposals: proposals,
+        );
+
+      // Back-compat with the original single-entry actions.
       case 'propose_create':
       case 'propose_update':
-        final e = json['entry'] as Map<String, Object?>;
-        final isUpdate = action == 'propose_update';
-        final id = e['id'] as String? ??
-            'wiki-${(e['title'] as String? ?? '').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}';
-        final base = isUpdate ? wiki[id] : null;
+        final e = json['entry'];
+        if (e is! Map<String, Object?>) {
+          return SeedingAction(
+            kind: SeedingActionKind.chat,
+            message: json['message'] as String? ?? raw.trim(),
+          );
+        }
         return SeedingAction(
-          kind: isUpdate
-              ? SeedingActionKind.proposeUpdate
-              : SeedingActionKind.proposeCreate,
-          entry: WikiEntry(
-            id: id,
-            worldId: worldId,
-            title: e['title'] as String? ?? base?.title ?? '',
-            category: e['category'] as String? ?? base?.category ?? '',
-            body: e['body'] as String? ?? base?.body ?? '',
-            tags: [
-              for (final t in e['tags'] as List<Object?>? ?? <Object?>[])
-                t! as String
-            ],
-            clockRef: e['clock_ref'] as int? ?? base?.clockRef,
-            version: base?.version ?? 1,
-          ),
+          kind: SeedingActionKind.propose,
+          proposals: [
+            _proposal(e, wiki, forceUpdate: action == 'propose_update'),
+          ],
         );
+
       default:
         return SeedingAction(
-            kind: SeedingActionKind.chat,
-            message: json['message'] as String? ?? '');
+          kind: SeedingActionKind.chat,
+          message: json['message'] as String? ?? raw.trim(),
+        );
     }
   }
 
-  /// User accepts a proposal: commit it as an event (change-log
-  /// write-through, §5.1). Returns the committed event.
-  Future<Event> accept(SeedingAction action) {
-    final entry = action.entry;
-    if (entry == null) {
-      throw ArgumentError('accept: action carries no entry');
-    }
+  SeedingProposal _proposal(
+    Map<String, Object?> e,
+    Map<String, WikiEntry> wiki, {
+    bool? forceUpdate,
+  }) {
+    final title = e['title'] as String? ?? '';
+    final id = e['id'] as String? ??
+        'wiki-${title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}';
+    // An entry is an update if the model says so, or if its id already exists.
+    final isUpdate =
+        forceUpdate ?? (e['op'] == 'update' || wiki.containsKey(id));
+    final base = isUpdate ? wiki[id] : null;
+    return SeedingProposal(
+      isUpdate: isUpdate,
+      entry: WikiEntry(
+        id: id,
+        worldId: worldId,
+        title: title.isEmpty ? (base?.title ?? '') : title,
+        category: e['category'] as String? ?? base?.category ?? '',
+        body: e['body'] as String? ?? base?.body ?? '',
+        tags: [
+          for (final t in e['tags'] as List<Object?>? ?? <Object?>[])
+            if (t != null) '$t'
+        ],
+        clockRef: (e['clock_ref'] as num?)?.round() ?? base?.clockRef,
+        version: base?.version ?? 1,
+      ),
+    );
+  }
+
+  /// Commit one proposal as an event (change-log write-through, §5.1).
+  Future<Event> accept(SeedingProposal proposal) {
     final cause = {'seeding_transcript_tail': transcript.length};
-    return switch (action.kind) {
-      SeedingActionKind.proposeCreate =>
-        service.createWikiEntry(entry, cause: cause),
-      SeedingActionKind.proposeUpdate =>
-        service.updateWikiEntry(entry, cause: cause),
-      _ => throw ArgumentError('accept: ${action.kind} is not a proposal'),
-    };
+    return proposal.isUpdate
+        ? service.updateWikiEntry(proposal.entry, cause: cause)
+        : service.createWikiEntry(proposal.entry, cause: cause);
   }
 }

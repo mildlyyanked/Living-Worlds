@@ -187,10 +187,12 @@ void main() {
       expect(q.message, contains('natural or dug'));
 
       final proposal = await session.send('Dug by smugglers, floods daily');
-      expect(proposal.kind, SeedingActionKind.proposeCreate);
-      expect(proposal.entry!.title, 'The Gullet');
+      expect(proposal.kind, SeedingActionKind.propose);
+      expect(proposal.proposals, hasLength(1));
+      expect(proposal.proposals.single.entry.title, 'The Gullet');
+      expect(proposal.proposals.single.isUpdate, isFalse);
 
-      final event = await session.accept(proposal);
+      final event = await session.accept(proposal.proposals.single);
       expect(event.type, EventType.wikiCreated);
 
       final p = await repo.projection();
@@ -200,7 +202,45 @@ void main() {
       expect(p.worldClock, 0);
     });
 
-    test('accepting a proposed update bumps the existing entry', () async {
+    test('one response can propose several entries, committed separately',
+        () async {
+      final llm = FixtureLlmClient(completions: [
+        jsonEncode({
+          'action': 'propose',
+          'entries': [
+            {
+              'op': 'create',
+              'title': 'The Gullet',
+              'category': 'Places',
+              'body': 'A drowned smuggling tunnel.',
+            },
+            {
+              'op': 'create',
+              'title': 'Brine Guild',
+              'category': 'Factions',
+              'body': 'They run the tunnel.',
+            },
+          ],
+        }),
+      ]);
+      final session = SeedingSession(
+          repo: repo, llm: llm, worldId: 'world-1', clock: fixedClock());
+      final action = await session.send('Add the tunnel and its owners');
+      expect(action.kind, SeedingActionKind.propose);
+      expect(action.proposals, hasLength(2));
+
+      // Commit only the first; the second remains uncommitted.
+      await session.accept(action.proposals.first);
+      var p = await repo.projection();
+      expect(p.wiki.values.map((w) => w.title), ['The Gullet']);
+
+      await session.accept(action.proposals[1]);
+      p = await repo.projection();
+      expect(p.wiki.values.map((w) => w.title).toSet(),
+          {'The Gullet', 'Brine Guild'});
+    });
+
+    test('propose_update (back-compat) bumps the existing entry', () async {
       await service.createWikiEntry(WikiEntry(
           id: 'wiki-gullet',
           worldId: 'world-1',
@@ -222,21 +262,24 @@ void main() {
       final session = SeedingSession(
           repo: repo, llm: llm, worldId: 'world-1', clock: fixedClock());
       final proposal = await session.send('Add the guard rotation');
-      expect(proposal.kind, SeedingActionKind.proposeUpdate);
-      await session.accept(proposal);
+      expect(proposal.proposals.single.isUpdate, isTrue);
+      await session.accept(proposal.proposals.single);
       final p = await repo.projection();
       expect(p.wiki['wiki-gullet']!.version, 2);
     });
 
-    test('accepting a non-proposal throws', () async {
+    test(
+        'a prose (non-JSON) reply degrades to chat, never throws (the '
+        'reported FormatException)', () async {
       final llm = FixtureLlmClient(completions: [
-        jsonEncode(<String, Object?>{'action': 'chat', 'message': 'hi'})
+        'Sure! Looking at your existing entries, I can help you expand this '
+            'world. What would you like to add first?',
       ]);
       final session = SeedingSession(
           repo: repo, llm: llm, worldId: 'world-1', clock: fixedClock());
-      final chat = await session.send('hello');
-      expect(chat.kind, SeedingActionKind.chat);
-      expect(() => session.accept(chat), throwsArgumentError);
+      final action = await session.send('help me build this world');
+      expect(action.kind, SeedingActionKind.chat);
+      expect(action.message, contains('expand this world'));
     });
   });
 }

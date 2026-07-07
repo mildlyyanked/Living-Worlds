@@ -1,6 +1,8 @@
 /// Seeding UI (§12, §5.1): ChatGPT-style workshop bound to wiki CRUD with a
 /// clarifying-question flow and change-log write-through. Conversations are
 /// persisted as per-world threads so they survive navigation and restarts.
+/// A single model response may propose several entries, each committed
+/// independently; a committed proposal's button deactivates.
 library;
 
 import 'package:flutter/material.dart';
@@ -26,11 +28,14 @@ class _SeedingScreenState extends State<SeedingScreen> {
   final _input = TextEditingController();
   bool _busy = false;
 
-  SeedingThread get thread => widget.thread;
+  /// Proposals attached to a given message index (a proposal-header message),
+  /// kept in memory for the current session so each can be accepted.
+  final Map<int, List<SeedingProposal>> _proposals = {};
 
-  /// Actions keyed by the message index they belong to, so an "Accept &
-  /// commit" button can be shown for a proposal even after reload.
-  final Map<int, SeedingAction> _pendingActions = {};
+  /// `msgIndex:propIndex` of proposals already committed.
+  final Set<String> _committed = {};
+
+  SeedingThread get thread => widget.thread;
 
   @override
   void dispose() {
@@ -40,7 +45,6 @@ class _SeedingScreenState extends State<SeedingScreen> {
 
   Future<void> _persist() async {
     thread.updatedAt = DateTime.now();
-    // Title the thread from its first user line for the list view.
     final firstUser = thread.messages.where((m) => m.fromUser).firstOrNull;
     if (firstUser != null && thread.title == 'New workshop thread') {
       thread.title = firstUser.text.length <= 40
@@ -62,50 +66,61 @@ class _SeedingScreenState extends State<SeedingScreen> {
     try {
       final action = await _session.send(text);
       setState(() {
-        final display = switch (action.kind) {
-          SeedingActionKind.clarify || SeedingActionKind.chat => action.message,
-          SeedingActionKind.proposeCreate =>
-            'Proposed new entry: "${action.entry!.title}"\n\n${action.entry!.body}',
-          SeedingActionKind.proposeUpdate =>
-            'Proposed update to: "${action.entry!.title}"\n\n${action.entry!.body}',
-        };
-        thread.messages.add(SeedingMessage(fromUser: false, text: display));
-        if (action.entry != null) {
-          _pendingActions[thread.messages.length - 1] = action;
+        switch (action.kind) {
+          case SeedingActionKind.clarify:
+          case SeedingActionKind.chat:
+            thread.messages.add(
+              SeedingMessage(
+                fromUser: false,
+                text: action.message.isEmpty ? '(no reply)' : action.message,
+              ),
+            );
+          case SeedingActionKind.propose:
+            final header = action.message.isNotEmpty
+                ? action.message
+                : (action.proposals.length == 1
+                      ? 'Proposed an entry:'
+                      : 'Proposed ${action.proposals.length} entries:');
+            thread.messages.add(SeedingMessage(fromUser: false, text: header));
+            _proposals[thread.messages.length - 1] = action.proposals;
         }
       });
       await _persist();
     } catch (e) {
-      setState(() {
-        thread.messages.add(SeedingMessage(fromUser: false, text: 'Error: $e'));
-      });
+      setState(
+        () => thread.messages.add(
+          SeedingMessage(fromUser: false, text: 'Error: $e'),
+        ),
+      );
       await _persist();
     } finally {
       setState(() => _busy = false);
     }
   }
 
-  Future<void> _accept(int messageIndex, SeedingAction action) async {
+  Future<void> _accept(int msgIndex, int propIndex, SeedingProposal p) async {
     setState(() => _busy = true);
     try {
-      await _session.accept(action);
+      await _session.accept(p);
       await widget.store.refresh();
       setState(() {
-        _pendingActions.remove(messageIndex);
+        _committed.add('$msgIndex:$propIndex');
         thread.messages.add(
           SeedingMessage(
             fromUser: false,
             text:
-                'Committed "${action.entry!.title}" to the wiki '
+                'Committed "${p.entry.title}" to the wiki '
                 '(event logged; undo in the change log).',
           ),
         );
       });
       await _persist();
     } catch (e) {
-      setState(() {
-        thread.messages.add(SeedingMessage(fromUser: false, text: 'Error: $e'));
-      });
+      setState(
+        () => thread.messages.add(
+          SeedingMessage(fromUser: false, text: 'Error: $e'),
+        ),
+      );
       await _persist();
     } finally {
       setState(() => _busy = false);
@@ -131,7 +146,9 @@ class _SeedingScreenState extends State<SeedingScreen> {
                         'Behind-the-scenes world building: describe people, '
                         'places, factions, lore. The assistant may ask '
                         'clarifying questions, then proposes wiki entries you '
-                        'approve. No clock, no dice, no character state (§5.1).',
+                        'approve. It can propose several at once — accept each '
+                        'separately. No clock, no dice, no character state '
+                        '(§5.1).',
                       ),
                     ),
                   ),
@@ -188,7 +205,7 @@ class _SeedingScreenState extends State<SeedingScreen> {
   }
 
   Widget _bubble(BuildContext context, int index, SeedingMessage m) {
-    final action = _pendingActions[index];
+    final proposals = _proposals[index] ?? const <SeedingProposal>[];
     return Column(
       crossAxisAlignment: m.fromUser
           ? CrossAxisAlignment.end
@@ -206,16 +223,50 @@ class _SeedingScreenState extends State<SeedingScreen> {
             ),
           ),
         ),
-        if (action?.entry != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: FilledButton(
-              key: const Key('accept-proposal'),
-              onPressed: _busy ? null : () => _accept(index, action!),
-              child: const Text('Accept & commit'),
-            ),
-          ),
+        for (var p = 0; p < proposals.length; p++)
+          _proposalCard(context, index, p, proposals[p]),
       ],
+    );
+  }
+
+  Widget _proposalCard(
+    BuildContext context,
+    int msgIndex,
+    int propIndex,
+    SeedingProposal proposal,
+  ) {
+    final committed = _committed.contains('$msgIndex:$propIndex');
+    final e = proposal.entry;
+    return Card(
+      key: Key('proposal-$msgIndex-$propIndex'),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${e.title} · ${e.category}'
+              '${proposal.isUpdate ? '  (update)' : ''}',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 6),
+            Text(e.body),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                key: Key('accept-proposal-$msgIndex-$propIndex'),
+                onPressed: (_busy || committed)
+                    ? null
+                    : () => _accept(msgIndex, propIndex, proposal),
+                icon: Icon(committed ? Icons.check : Icons.save),
+                label: Text(committed ? 'Committed' : 'Accept & commit'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

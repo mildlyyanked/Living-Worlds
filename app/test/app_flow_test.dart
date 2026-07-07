@@ -205,11 +205,18 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('seeding-send')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('accept-proposal')), findsOneWidget);
+    final acceptBtn = find.byWidgetPredicate(
+      (w) => w.key != null && '${w.key}'.contains('accept-proposal'),
+    );
+    expect(acceptBtn, findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('accept-proposal')));
+    await tester.ensureVisible(acceptBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(acceptBtn);
     await tester.pumpAndSettle();
     expect(find.textContaining('Committed "The Gullet"'), findsOneWidget);
+    // The committed proposal's button deactivates and reads "Committed".
+    expect(find.widgetWithText(FilledButton, 'Committed'), findsOneWidget);
 
     // Back to the wiki tab (lands on Workshop); switch to Entries to see
     // the committed entry + change log with undo.
