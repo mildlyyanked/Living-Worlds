@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Release builds need this explicitly: Flutter only injects INTERNET
+         into the debug/profile manifests, so a release AAB has no network
+         access without it (DNS lookups fail with "No address associated with
+         hostname"). Required for OpenRouter and the Supabase proxy. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="living_worlds"
         android:name="${applicationName}"
