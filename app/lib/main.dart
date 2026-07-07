@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'src/app_services.dart';
 import 'src/screens/world_select_screen.dart';
 
-void main() {
-  runApp(LivingWorldsApp(services: AppServices()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final services = AppServices();
+  await services.init(); // load persisted settings (OpenRouter key, etc.)
+  runApp(LivingWorldsApp(services: services));
 }
 
 class LivingWorldsApp extends StatelessWidget {

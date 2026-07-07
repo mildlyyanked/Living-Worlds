@@ -133,16 +133,19 @@ class WikiCandidate {
         'source_turn_seq': sourceTurnSeq,
       };
 
+  // Tolerant of missing fields: the gameplay model emits candidates without
+  // an `id` (the engine assigns one), and may omit others. Never hard-cast
+  // model-provided JSON — a null cast would fail the whole turn.
   factory WikiCandidate.fromJson(Map<String, Object?> json) => WikiCandidate(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        category: json['category'] as String,
-        body: json['body'] as String,
+        id: json['id'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        category: json['category'] as String? ?? '',
+        body: json['body'] as String? ?? '',
         tags: [
           for (final t in json['tags'] as List<Object?>? ?? <Object?>[])
-            t! as String
+            if (t != null) '$t'
         ],
-        clockRef: json['clock_ref'] as int?,
-        sourceTurnSeq: json['source_turn_seq'] as int?,
+        clockRef: (json['clock_ref'] as num?)?.round(),
+        sourceTurnSeq: (json['source_turn_seq'] as num?)?.round(),
       );
 }

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:living_worlds_engine/living_worlds_engine.dart';
 
 import 'app_services.dart';
+import 'persistence.dart';
 
 /// One rendered chat item in the gameplay window.
 class ChatItem {
@@ -38,6 +39,10 @@ class WorldStore extends ChangeNotifier {
   bool busy = false;
   String? lastError;
 
+  /// Seeding-workshop threads for this world (newest first), persisted
+  /// per-world so the conversation survives navigation and restarts.
+  List<SeedingThread> seedingThreads = [];
+
   static Future<WorldStore> open(AppServices services, WorldRef ref) async {
     final store = WorldStore(
       services: services,
@@ -45,7 +50,26 @@ class WorldStore extends ChangeNotifier {
       repo: await services.openRepo(ref),
     );
     await store.refresh();
+    store.seedingThreads = await services.seedingThreads.load(ref.id);
     return store;
+  }
+
+  Future<void> persistSeedingThreads() async {
+    seedingThreads.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    await services.seedingThreads.save(ref.id, seedingThreads);
+    notifyListeners();
+  }
+
+  SeedingThread startSeedingThread() {
+    final thread = SeedingThread.fresh();
+    seedingThreads.insert(0, thread);
+    persistSeedingThreads();
+    return thread;
+  }
+
+  Future<void> deleteSeedingThread(SeedingThread thread) async {
+    seedingThreads.removeWhere((t) => t.id == thread.id);
+    await persistSeedingThreads();
   }
 
   TurnController _controller() => TurnController(
@@ -156,7 +180,23 @@ class WorldStore extends ChangeNotifier {
     });
   }
 
-  /// Seeding session bound to this world (§5.1).
-  SeedingSession newSeedingSession() =>
-      SeedingSession(repo: repo, llm: services.buildLlm(), worldId: ref.id);
+  /// Seeding session bound to this world (§5.1). When [resume] is given, its
+  /// prior messages pre-seed the session transcript so the model keeps the
+  /// conversation's context on continuation.
+  SeedingSession newSeedingSession({SeedingThread? resume}) {
+    final session = SeedingSession(
+      repo: repo,
+      llm: services.buildLlm(),
+      worldId: ref.id,
+    );
+    if (resume != null) {
+      for (final m in resume.messages) {
+        session.transcript.add((
+          role: m.fromUser ? 'user' : 'assistant',
+          text: m.text,
+        ));
+      }
+    }
+    return session;
+  }
 }

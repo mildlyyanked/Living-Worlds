@@ -5,6 +5,21 @@ library;
 
 import '../model/wiki.dart';
 
+/// Tolerant enum lookup for parsing model output: real models occasionally
+/// omit or misspell an `op`, and a hard `byName` throw would fail the whole
+/// turn. We fall back to a value whose failure mode is a clean *rejection*
+/// (never an unintended mutation), because the paired identity field
+/// (item/key/quest_id) also defaults to '' and the engine rejects empties.
+T _enumOr<T extends Enum>(List<T> values, Object? name, T fallback) {
+  for (final v in values) {
+    if (v.name == name) return v;
+  }
+  return fallback;
+}
+
+String _str(Object? v) => v is String ? v : '';
+double _dbl(Object? v) => v is num ? v.toDouble() : 0.0;
+
 enum InventoryOpKind { grant, remove, use }
 
 class InventoryOp {
@@ -26,10 +41,11 @@ class InventoryOp {
       {'op': op.name, 'item': item, 'qty': qty, 'reason': reason};
 
   factory InventoryOp.fromJson(Map<String, Object?> json) => InventoryOp(
-        op: InventoryOpKind.values.byName(json['op'] as String),
-        item: json['item'] as String,
-        qty: json['qty'] as int? ?? 1,
-        reason: json['reason'] as String? ?? '',
+        // 'use' of an empty/unheld item is safely rejected by the engine.
+        op: _enumOr(InventoryOpKind.values, json['op'], InventoryOpKind.use),
+        item: _str(json['item']),
+        qty: (json['qty'] as num?)?.round() ?? 1,
+        reason: _str(json['reason']),
       );
 }
 
@@ -52,10 +68,11 @@ class StatOp {
       {'key': key, 'op': op.name, 'value': value, 'reason': reason};
 
   factory StatOp.fromJson(Map<String, Object?> json) => StatOp(
-        key: json['key'] as String,
-        op: StatOpKind.values.byName(json['op'] as String),
-        value: (json['value'] as num).toDouble(),
-        reason: json['reason'] as String? ?? '',
+        key: _str(json['key']),
+        // 'delta' of 0 on an empty key is a rejected no-op.
+        op: _enumOr(StatOpKind.values, json['op'], StatOpKind.delta),
+        value: _dbl(json['value']),
+        reason: _str(json['reason']),
       );
 }
 
@@ -78,10 +95,11 @@ class StatusOp {
       {'op': op.name, 'key': key, 'severity': severity, 'reason': reason};
 
   factory StatusOp.fromJson(Map<String, Object?> json) => StatusOp(
-        op: StatusOpKind.values.byName(json['op'] as String),
-        key: json['key'] as String,
+        // 'remove' of an empty/absent key is safely rejected.
+        op: _enumOr(StatusOpKind.values, json['op'], StatusOpKind.remove),
+        key: _str(json['key']),
         severity: (json['severity'] as num?)?.toDouble(),
-        reason: json['reason'] as String? ?? '',
+        reason: _str(json['reason']),
       );
 }
 
@@ -103,10 +121,10 @@ class RelationshipOp {
       {'to': to, 'dim': dim, 'delta': delta, 'reason': reason};
 
   factory RelationshipOp.fromJson(Map<String, Object?> json) => RelationshipOp(
-        to: json['to'] as String,
-        dim: json['dim'] as String,
-        delta: (json['delta'] as num).toDouble(),
-        reason: json['reason'] as String? ?? '',
+        to: _str(json['to']),
+        dim: _str(json['dim']),
+        delta: _dbl(json['delta']),
+        reason: _str(json['reason']),
       );
 }
 
@@ -129,10 +147,11 @@ class QuestOp {
       {'quest_id': questId, 'op': op.name, 'step_id': stepId, 'reason': reason};
 
   factory QuestOp.fromJson(Map<String, Object?> json) => QuestOp(
-        questId: json['quest_id'] as String,
-        op: QuestOpKind.values.byName(json['op'] as String),
+        questId: _str(json['quest_id']),
+        // 'progress' on an empty quest/step is safely rejected.
+        op: _enumOr(QuestOpKind.values, json['op'], QuestOpKind.progress),
         stepId: json['step_id'] as String?,
-        reason: json['reason'] as String? ?? '',
+        reason: _str(json['reason']),
       );
 }
 

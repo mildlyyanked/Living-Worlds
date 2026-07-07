@@ -8,13 +8,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:living_worlds/main.dart';
 import 'package:living_worlds/src/app_services.dart';
+import 'package:living_worlds/src/persistence.dart';
 import 'package:living_worlds_engine/living_worlds_engine.dart';
 
-AppServices testServices({LlmClient Function(AppSettings)? llmFactory}) {
+AppServices testServices({
+  LlmClient Function(AppSettings)? llmFactory,
+  KeyValueStore? kv,
+}) {
   return AppServices(
     repoFactory: (_) => InMemoryRepository(),
     llmFactory: llmFactory,
     worldsDirProvider: () async => Directory('unused-in-tests'),
+    keyValueStore: kv ?? InMemoryKeyValueStore(),
     scanDiskWorlds: false,
   );
 }
@@ -180,7 +185,10 @@ void main() {
 
     await tester.tap(find.text('Wiki'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('open-seeding')));
+    // Open the Workshop sub-tab and start a new thread.
+    await tester.tap(find.text('Workshop'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('new-seeding-thread')));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -197,14 +205,17 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('seeding-send')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('seeding-proposal')), findsOneWidget);
+    expect(find.byKey(const Key('accept-proposal')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('accept-proposal')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Committed "The Gullet"'), findsOneWidget);
 
-    // Back to the wiki tab: entry + change log with undo.
+    // Back to the wiki tab (lands on Workshop); switch to Entries to see
+    // the committed entry + change log with undo.
     await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Entries'));
     await tester.pumpAndSettle();
     expect(find.textContaining('The Gullet'), findsWidgets);
     expect(find.text('Change log'), findsOneWidget);
@@ -362,5 +373,63 @@ void main() {
     await tester.tap(find.text('Map'));
     await tester.pumpAndSettle();
     expect(find.textContaining('deferred'), findsOneWidget);
+  });
+
+  test('settings (incl. OpenRouter key) persist across app restarts', () async {
+    final kv = InMemoryKeyValueStore();
+    final first = testServices(kv: kv);
+    first.settings.update((s) {
+      s.llmMode = LlmMode.openRouterDirect;
+      s.openRouterKey = 'sk-or-test';
+      s.model = 'anthropic/claude-opus-4';
+    });
+    await Future<void>.delayed(Duration.zero); // flush fire-and-forget save
+
+    // A fresh AppServices over the same store = a simulated restart.
+    final second = testServices(kv: kv);
+    await second.init();
+    expect(second.settings.llmMode, LlmMode.openRouterDirect);
+    expect(second.settings.openRouterKey, 'sk-or-test');
+    expect(second.settings.model, 'anthropic/claude-opus-4');
+  });
+
+  testWidgets('seeding workshop threads survive leaving the conversation', (
+    tester,
+  ) async {
+    final fixture = FixtureLlmClient(
+      completions: ['{"action":"chat","message":"Noted — tell me more."}'],
+    );
+    await tester.pumpWidget(
+      LivingWorldsApp(services: testServices(llmFactory: (_) => fixture)),
+    );
+    await tester.pumpAndSettle();
+    await createWorldViaUi(tester);
+    await openHarborfall(tester);
+
+    await tester.tap(find.text('Wiki'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Workshop'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('new-seeding-thread')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('seeding-input')),
+      'Tell me about the docks',
+    );
+    await tester.tap(find.byKey(const Key('seeding-send')));
+    await tester.pumpAndSettle();
+    expect(find.text('Noted — tell me more.'), findsOneWidget);
+
+    // Leave the conversation — the thread and its title persist in the list.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Tell me about the docks'), findsWidgets);
+    expect(find.textContaining('messages'), findsWidgets);
+
+    // Re-open it — the conversation is still there.
+    await tester.tap(find.textContaining('Tell me about the docks').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Noted — tell me more.'), findsOneWidget);
   });
 }

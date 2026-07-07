@@ -1,12 +1,16 @@
-/// Wiki tab (§12): content viewer, change log with undo/redo, seeding
-/// session window, candidate review queue.
+/// Wiki tab (§12): content viewer, change log with undo/redo, candidate
+/// review queue (Entries view) and the seeding-workshop thread list
+/// (Workshop view).
 library;
 
 import 'package:flutter/material.dart';
 import 'package:living_worlds_engine/living_worlds_engine.dart';
 
+import '../persistence.dart';
 import '../screens/seeding_screen.dart';
 import '../world_store.dart';
+
+enum _WikiView { entries, workshop }
 
 class WikiTab extends StatefulWidget {
   const WikiTab({super.key, required this.store});
@@ -19,89 +23,180 @@ class WikiTab extends StatefulWidget {
 
 class _WikiTabState extends State<WikiTab> {
   WorldStore get store => widget.store;
+  _WikiView _view_ = _WikiView.entries;
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: SegmentedButton<_WikiView>(
+            segments: const [
+              ButtonSegment(
+                value: _WikiView.entries,
+                icon: Icon(Icons.article),
+                label: Text('Entries'),
+              ),
+              ButtonSegment(
+                value: _WikiView.workshop,
+                icon: Icon(Icons.auto_fix_high),
+                label: Text('Workshop'),
+              ),
+            ],
+            selected: {_view_},
+            onSelectionChanged: (s) => setState(() => _view_ = s.first),
+          ),
+        ),
+        Expanded(
+          child: _view_ == _WikiView.entries
+              ? _entriesView(context)
+              : _workshopView(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _entriesView(BuildContext context) {
     final p = store.projection!;
     final entries = p.wiki.values.toList()
       ..sort((a, b) => a.title.compareTo(b.title));
     final candidates = p.pendingCandidates.values.toList();
 
-    return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          if (candidates.isNotEmpty) ...[
-            Text(
-              'Review queue (from gameplay, §5.2)',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            for (final c in candidates)
-              Card(
-                key: Key('candidate-${c.id}'),
-                child: ListTile(
-                  title: Text('${c.title}  ·  ${c.category}'),
-                  subtitle: Text(
-                    c.body,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        key: Key('promote-${c.id}'),
-                        icon: const Icon(Icons.check, color: Colors.green),
-                        tooltip: 'Promote to wiki',
-                        onPressed: () => _promote(c),
-                      ),
-                      IconButton(
-                        key: Key('reject-${c.id}'),
-                        icon: const Icon(Icons.close, color: Colors.red),
-                        tooltip: 'Reject',
-                        onPressed: () => store.rejectCandidate(c),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            const Divider(),
-          ],
-          Text('Entries', style: Theme.of(context).textTheme.titleMedium),
-          if (entries.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text(
-                'Nothing written yet — open the seeding workshop '
-                'to build the world.',
-              ),
-            ),
-          for (final w in entries)
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        if (candidates.isNotEmpty) ...[
+          Text(
+            'Review queue (from gameplay, §5.2)',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          for (final c in candidates)
             Card(
-              key: Key('wiki-${w.id}'),
+              key: Key('candidate-${c.id}'),
               child: ListTile(
-                title: Text('${w.title}  ·  ${w.category}  ·  v${w.version}'),
+                title: Text('${c.title}  ·  ${c.category}'),
                 subtitle: Text(
-                  w.body,
+                  c.body,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                onTap: () => _view(w),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      key: Key('promote-${c.id}'),
+                      icon: const Icon(Icons.check, color: Colors.green),
+                      tooltip: 'Promote to wiki',
+                      onPressed: () => _promote(c),
+                    ),
+                    IconButton(
+                      key: Key('reject-${c.id}'),
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      tooltip: 'Reject',
+                      onPressed: () => store.rejectCandidate(c),
+                    ),
+                  ],
+                ),
               ),
             ),
           const Divider(),
-          _ChangeLog(store: store),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('open-seeding'),
-        icon: const Icon(Icons.auto_fix_high),
-        label: const Text('Seeding workshop'),
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => SeedingScreen(store: store)),
+        Text('Entries', style: Theme.of(context).textTheme.titleMedium),
+        if (entries.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text(
+              'Nothing written yet — open the seeding workshop '
+              'to build the world.',
+            ),
+          ),
+        for (final w in entries)
+          Card(
+            key: Key('wiki-${w.id}'),
+            child: ListTile(
+              title: Text('${w.title}  ·  ${w.category}  ·  v${w.version}'),
+              subtitle: Text(
+                w.body,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => _view(w),
+            ),
+          ),
+        const Divider(),
+        _ChangeLog(store: store),
+      ],
+    );
+  }
+
+  Widget _workshopView(BuildContext context) {
+    final threads = store.seedingThreads;
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Seeding workshop',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Conversations that build the wiki. Threads are '
+                  'saved per world and kept across sessions.',
+                ),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  key: const Key('new-seeding-thread'),
+                  icon: const Icon(Icons.add),
+                  label: const Text('New thread'),
+                  onPressed: () => _openThread(store.startSeedingThread()),
+                ),
+              ],
+            ),
+          ),
         ),
+        if (threads.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text('No workshop threads yet.'),
+          ),
+        for (final t in threads)
+          Card(
+            key: Key('thread-${t.id}'),
+            child: ListTile(
+              leading: const Icon(Icons.forum_outlined),
+              title: Text(t.title),
+              subtitle: Text(
+                '${t.messages.length} messages · ${t.preview}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: IconButton(
+                key: Key('delete-thread-${t.id}'),
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Delete thread',
+                onPressed: () => store.deleteSeedingThread(t),
+              ),
+              onTap: () => _openThread(t),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _openThread(SeedingThread thread) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SeedingScreen(store: store, thread: thread),
       ),
     );
+    if (mounted) setState(() {}); // reflect new messages/title on return
   }
 
   void _view(WikiEntry w) {

@@ -190,13 +190,6 @@ class _GameplayScreenState extends State<GameplayScreen> {
                     ),
                   ),
                 ),
-              if (store.busy)
-                const Positioned.fill(
-                  child: ColoredBox(
-                    color: Colors.black38,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                ),
             ],
           ),
           bottomSheet: settings.debugPanel && _session.isNotEmpty
@@ -246,44 +239,67 @@ class _ChatColumn extends StatelessWidget {
     return Column(
       children: [
         Expanded(
-          child: ListView(
-            controller: scroll,
-            padding: const EdgeInsets.all(12),
-            children: [
-              for (final item in session) _TurnBubble(item: item),
-              if (store.lastError != null)
-                Card(
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      'Turn failed (nothing committed): '
-                      '${store.lastError}',
+          // SelectionArea makes all narrative/chips selectable + copyable.
+          child: SelectionArea(
+            child: ListView(
+              controller: scroll,
+              padding: const EdgeInsets.all(12),
+              children: [
+                for (final item in session) _TurnBubble(item: item),
+                // Non-blocking pending indicator: the screen stays scrollable
+                // and readable while the model thinks; only send is disabled.
+                if (store.busy)
+                  const Card(
+                    key: Key('turn-pending'),
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 10),
+                          Text('The world responds…'),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              if (dead)
-                Card(
-                  key: const Key('death-card'),
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      children: [
-                        Text(
-                          '${character.name} has died. '
-                          'This timeline is frozen.',
-                        ),
-                        TextButton(
-                          key: const Key('undo-death'),
-                          onPressed: onUndoDeath,
-                          child: const Text('Undo the fatal turn'),
-                        ),
-                      ],
+                if (store.lastError != null)
+                  Card(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        'Turn failed (nothing committed): '
+                        '${store.lastError}',
+                      ),
                     ),
                   ),
-                ),
-            ],
+                if (dead)
+                  Card(
+                    key: const Key('death-card'),
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        children: [
+                          Text(
+                            '${character.name} has died. '
+                            'This timeline is frozen.',
+                          ),
+                          TextButton(
+                            key: const Key('undo-death'),
+                            onPressed: onUndoDeath,
+                            child: const Text('Undo the fatal turn'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         SafeArea(
@@ -295,7 +311,9 @@ class _ChatColumn extends StatelessWidget {
                   child: TextField(
                     key: const Key('turn-input'),
                     controller: input,
-                    enabled: !dead && !store.busy,
+                    // Editable while a turn is in flight so the next action
+                    // can be drafted; only submission waits.
+                    enabled: !dead,
                     decoration: InputDecoration(
                       hintText: dead
                           ? 'Timeline frozen'

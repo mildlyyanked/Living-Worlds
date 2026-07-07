@@ -3,11 +3,14 @@
 /// FixtureLlmClient — same philosophy as the engine (§11).
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:living_worlds_engine/living_worlds_engine.dart';
 import 'package:path_provider/path_provider.dart';
+
+import 'persistence.dart';
 
 /// Where completions come from (§7 key handling).
 enum LlmMode {
@@ -21,7 +24,14 @@ enum LlmMode {
   supabaseProxy,
 }
 
+/// User settings, persisted to a [KeyValueStore] so the OpenRouter key and
+/// other choices survive app restarts.
 class AppSettings extends ChangeNotifier {
+  AppSettings(this._kv);
+
+  final KeyValueStore _kv;
+  static const _storeKey = 'app_settings';
+
   LlmMode llmMode = LlmMode.offline;
   String openRouterKey = '';
   String supabaseUrl = '';
@@ -30,10 +40,44 @@ class AppSettings extends ChangeNotifier {
   bool debugPanel = false;
   int contextBudgetTokens = 6000;
 
+  /// Read persisted values (call once at startup).
+  Future<void> load() async {
+    final raw = await _kv.get(_storeKey);
+    if (raw == null || raw.isEmpty) return;
+    final j = jsonDecode(raw) as Map<String, Object?>;
+    llmMode = LlmMode.values.firstWhere(
+      (m) => m.name == j['llmMode'],
+      orElse: () => llmMode,
+    );
+    openRouterKey = j['openRouterKey'] as String? ?? openRouterKey;
+    supabaseUrl = j['supabaseUrl'] as String? ?? supabaseUrl;
+    supabaseAnonKey = j['supabaseAnonKey'] as String? ?? supabaseAnonKey;
+    model = j['model'] as String? ?? model;
+    debugPanel = j['debugPanel'] as bool? ?? debugPanel;
+    contextBudgetTokens =
+        (j['contextBudgetTokens'] as num?)?.round() ?? contextBudgetTokens;
+    notifyListeners();
+  }
+
   void update(void Function(AppSettings s) fn) {
     fn(this);
     notifyListeners();
+    // Fire-and-forget persist; the next load() reflects it.
+    _save();
   }
+
+  Future<void> _save() => _kv.set(
+    _storeKey,
+    jsonEncode({
+      'llmMode': llmMode.name,
+      'openRouterKey': openRouterKey,
+      'supabaseUrl': supabaseUrl,
+      'supabaseAnonKey': supabaseAnonKey,
+      'model': model,
+      'debugPanel': debugPanel,
+      'contextBudgetTokens': contextBudgetTokens,
+    }),
+  );
 }
 
 /// A known world: where its event log lives + display info.
@@ -53,8 +97,10 @@ class AppServices {
     LlmClient Function(AppSettings settings)? llmFactory,
     EmbeddingClient Function(AppSettings settings)? embedderFactory,
     Future<Directory> Function()? worldsDirProvider,
+    KeyValueStore? keyValueStore,
     this.scanDiskWorlds = true,
-  }) : _repoFactory = repoFactory ?? _defaultRepoFactory,
+  }) : kv = keyValueStore ?? SharedPrefsKeyValueStore(),
+       _repoFactory = repoFactory ?? _defaultRepoFactory,
        _llmFactory = llmFactory ?? _defaultLlmFactory,
        _embedderFactory = embedderFactory ?? ((_) => FixtureEmbeddingClient()),
        _worldsDir = worldsDirProvider ?? _defaultWorldsDir;
@@ -63,13 +109,18 @@ class AppServices {
   /// completes; they set this false and use in-memory worlds only.
   final bool scanDiskWorlds;
 
-  final AppSettings settings = AppSettings();
+  final KeyValueStore kv;
+  late final AppSettings settings = AppSettings(kv);
+  late final SeedingThreadStore seedingThreads = SeedingThreadStore(kv);
   final WorldRepository Function(String path) _repoFactory;
   final LlmClient Function(AppSettings settings) _llmFactory;
   final EmbeddingClient Function(AppSettings settings) _embedderFactory;
   final Future<Directory> Function() _worldsDir;
 
   final Map<String, WorldRepository> _open = {};
+
+  /// One-time startup: load persisted settings.
+  Future<void> init() => settings.load();
 
   static WorldRepository _defaultRepoFactory(String path) =>
       path == 'memory' ? InMemoryRepository() : LocalRepository.open(path);
