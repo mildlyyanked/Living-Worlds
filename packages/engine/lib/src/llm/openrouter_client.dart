@@ -195,17 +195,50 @@ class OpenRouterLlmClient implements LlmClient {
         '';
   }
 
-  /// Tolerant strict-JSON parse: strips code fences, then decodes the
-  /// contract shape. Malformed output throws — the turn controller treats
-  /// that as a failed (uncommitted) turn.
+  /// Tolerant parse of a gameplay turn. Models sometimes ignore the
+  /// strict-JSON instruction and narrate in prose (which threw
+  /// `FormatException: Unexpected character (at character 1)`). We degrade
+  /// gracefully so the story still shows and the turn commits with no
+  /// mechanical changes:
+  ///   1. strip code fences and decode as the contract shape; else
+  ///   2. salvage an embedded `{...}` JSON object if one is present; else
+  ///   3. treat the whole reply as the narrative with empty deltas.
   static TurnOutput parseTurnOutput(String raw) {
     var text = raw.trim();
     if (text.startsWith('```')) {
       text = text
           .replaceFirst(RegExp(r'^```[a-zA-Z]*\s*'), '')
-          .replaceFirst(RegExp(r'```\s*$'), '');
+          .replaceFirst(RegExp(r'```\s*$'), '')
+          .trim();
     }
-    return TurnOutput.fromJson(jsonDecode(text) as Map<String, Object?>);
+
+    // 1. Whole thing is JSON.
+    final direct = _tryDecodeObject(text);
+    if (direct != null) return TurnOutput.fromJson(direct);
+
+    // 2. JSON embedded in prose ("Here is the turn: { ... }").
+    final start = text.indexOf('{');
+    final end = text.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      final embedded = _tryDecodeObject(text.substring(start, end + 1));
+      if (embedded != null &&
+          (embedded.containsKey('narrative') ||
+              embedded.containsKey('proposed_deltas'))) {
+        return TurnOutput.fromJson(embedded);
+      }
+    }
+
+    // 3. Pure prose — narrate it, change nothing.
+    return TurnOutput(narrative: raw.trim());
+  }
+
+  static Map<String, Object?>? _tryDecodeObject(String s) {
+    try {
+      final v = jsonDecode(s);
+      return v is Map<String, Object?> ? v : null;
+    } catch (_) {
+      return null;
+    }
   }
 }
 

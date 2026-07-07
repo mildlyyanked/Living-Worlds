@@ -314,13 +314,18 @@ class _ChatColumn extends StatelessWidget {
                     // Editable while a turn is in flight so the next action
                     // can be drafted; only submission waits.
                     enabled: !dead,
+                    // Multi-line: Return inserts a newline; send via the
+                    // button. Grows up to 6 lines, then scrolls.
+                    minLines: 1,
+                    maxLines: 6,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
                     decoration: InputDecoration(
                       hintText: dead
                           ? 'Timeline frozen'
                           : 'What does ${character.name} do?',
                       border: const OutlineInputBorder(),
                     ),
-                    onSubmitted: (_) => onSend(),
                   ),
                 ),
                 const SizedBox(width: 8),

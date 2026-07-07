@@ -68,6 +68,27 @@ void main() {
       const raw = '```json\n{"narrative":"hi","peril":false}\n```';
       expect(OpenRouterLlmClient.parseTurnOutput(raw).narrative, 'hi');
     });
+
+    test(
+        'a pure-prose turn (no JSON) becomes the narrative, no crash '
+        '(the reported gameplay FormatException)', () {
+      const raw = 'You stand at the heart of **Beanabona**, a modest '
+          'settlement of salt and rope.';
+      final out = OpenRouterLlmClient.parseTurnOutput(raw);
+      expect(out.narrative, contains('Beanabona'));
+      // No structured deltas => nothing changes mechanically.
+      expect(out.proposedDeltas.clockAdvanceMinutes, 0);
+      expect(out.proposedDeltas.stats, isEmpty);
+    });
+
+    test('JSON embedded in prose is salvaged', () {
+      const raw = 'Sure, here is the turn:\n'
+          '{"narrative":"You walk on.","proposed_deltas":'
+          '{"clock_advance_minutes":15}}\nHope that works!';
+      final out = OpenRouterLlmClient.parseTurnOutput(raw);
+      expect(out.narrative, 'You walk on.');
+      expect(out.proposedDeltas.clockAdvanceMinutes, 15);
+    });
   });
 
   test('engine assigns ids to id-less candidates and commits the turn',

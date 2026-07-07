@@ -182,11 +182,15 @@ class _SeedingScreenState extends State<SeedingScreen> {
                     child: TextField(
                       key: const Key('seeding-input'),
                       controller: _input,
+                      // Multi-line: Return inserts a newline; send via button.
+                      minLines: 1,
+                      maxLines: 6,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.newline,
                       decoration: const InputDecoration(
                         hintText: 'Describe something for the wiki…',
                         border: OutlineInputBorder(),
                       ),
-                      onSubmitted: (_) => _send(),
                     ),
                   ),
                   const SizedBox(width: 8),
