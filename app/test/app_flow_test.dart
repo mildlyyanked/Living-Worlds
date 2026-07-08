@@ -439,4 +439,136 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Noted — tell me more.'), findsOneWidget);
   });
+
+  testWidgets('observe mode: an observation narrates but advances no clock and '
+      'shows no chips', (tester) async {
+    await tester.pumpWidget(LivingWorldsApp(services: testServices()));
+    await tester.pumpAndSettle();
+    await createWorldViaUi(tester);
+    await openHarborfall(tester);
+    await openAsh(tester);
+
+    // Switch to Observe, then send.
+    await tester.tap(find.text('Observe'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('turn-input')),
+      'peer into the fog',
+    );
+    await tester.tap(find.byKey(const Key('send-turn')));
+    await tester.pumpAndSettle();
+
+    // Observation bubble rendered; clock unchanged; no mechanical chip.
+    expect(find.textContaining('👁'), findsOneWidget);
+    expect(find.text('Day 1, 00:00'), findsWidgets); // clock did not move
+    expect(find.text('+30 min'), findsNothing);
+  });
+
+  testWidgets('new character: seeded creation shows an opening scenario and '
+      'starts at the world clock', (tester) async {
+    await tester.pumpWidget(LivingWorldsApp(services: testServices()));
+    await tester.pumpAndSettle();
+    await createWorldViaUi(tester);
+    await openHarborfall(tester);
+
+    // Advance the world clock via Ash first.
+    await openAsh(tester);
+    await tester.enterText(
+      find.byKey(const Key('turn-input')),
+      'walk a while',
+    );
+    await tester.tap(find.byKey(const Key('send-turn')));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Create Mara from a seeding paragraph.
+    await tester.tap(find.byKey(const Key('new-character')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('new-character-name')), 'Mara');
+    await tester.enterText(
+      find.byKey(const Key('new-character-seed')),
+      'A wary dockside smuggler who owes the Guild a debt.',
+    );
+    await tester.tap(find.byKey(const Key('create-character')));
+    await tester.pumpAndSettle();
+
+    // Mara starts at the world clock (Day 1, 00:30), not zero.
+    expect(find.byKey(const Key('character-mara')), findsOneWidget);
+    expect(find.text('Day 1, 00:30'), findsWidgets);
+
+    // Opening scenario is shown when Mara's session opens.
+    await tester.tap(find.byKey(const Key('character-mara')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('opening-scenario')), findsOneWidget);
+  });
+
+  testWidgets('dead character: dialogue stays readable, input stays disabled', (
+    tester,
+  ) async {
+    // Fixture forces an instant-lethal poison stack.
+    final fixture = FixtureLlmClient(
+      turnOutputs: [
+        const TurnOutput(
+          narrative: 'The vial shatters; poison floods your veins.',
+          proposedDeltas: ProposedDeltas(
+            status: [
+              StatusOp(op: StatusOpKind.add, key: 'poisoned', severity: 10),
+            ],
+          ),
+          peril: true,
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      LivingWorldsApp(services: testServices(llmFactory: (_) => fixture)),
+    );
+    await tester.pumpAndSettle();
+    await createWorldViaUi(tester);
+    await openHarborfall(tester);
+    await openAsh(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('turn-input')),
+      'drink the strange vial',
+    );
+    await tester.tap(find.byKey(const Key('send-turn')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('death-card')), findsOneWidget);
+
+    // Back to the roster; the dead character is still tappable.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('character-ash')));
+    await tester.pumpAndSettle();
+
+    // Their dialogue is preserved and the death card shows; input is disabled.
+    expect(find.textContaining('poison floods your veins'), findsWidgets);
+    expect(find.byKey(const Key('death-card')), findsOneWidget);
+    final input = tester.widget<TextField>(find.byKey(const Key('turn-input')));
+    expect(input.enabled, isFalse);
+  });
+
+  testWidgets('duplicate world: copies a world into a new tile', (
+    tester,
+  ) async {
+    await tester.pumpWidget(LivingWorldsApp(services: testServices()));
+    await tester.pumpAndSettle();
+    await createWorldViaUi(tester);
+    expect(find.textContaining('Harborfall'), findsOneWidget);
+
+    // Open the tile's menu and duplicate.
+    await tester.tap(
+      find.byWidgetPredicate(
+        (w) => w.key != null && '${w.key}'.contains('world-menu'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duplicate'));
+    await tester.pumpAndSettle();
+
+    // Original + copy now both present.
+    expect(find.textContaining('Harborfall (copy)'), findsOneWidget);
+    expect(find.text('Harborfall'), findsOneWidget);
+  });
 }

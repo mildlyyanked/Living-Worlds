@@ -115,11 +115,35 @@ class _WikiTabState extends State<WikiTab> {
           Card(
             key: Key('wiki-${w.id}'),
             child: ListTile(
-              title: Text('${w.title}  ·  ${w.category}  ·  v${w.version}'),
+              leading: p.worldBioEntryId == w.id
+                  ? const Icon(Icons.public, color: Colors.blue)
+                  : null,
+              title: Text(
+                '${w.title}  ·  ${w.category}  ·  v${w.version}'
+                '${p.worldBioEntryId == w.id ? '  · world overview' : ''}',
+              ),
               subtitle: Text(
                 w.body,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+              ),
+              trailing: PopupMenuButton<String>(
+                key: Key('wiki-menu-${w.id}'),
+                onSelected: (v) => store.designateWorldBio(
+                  v == 'set' ? w.id : null,
+                ),
+                itemBuilder: (context) => [
+                  if (p.worldBioEntryId != w.id)
+                    const PopupMenuItem(
+                      value: 'set',
+                      child: Text('Set as world overview'),
+                    )
+                  else
+                    const PopupMenuItem(
+                      value: 'clear',
+                      child: Text('Clear world overview'),
+                    ),
+                ],
               ),
               onTap: () => _view(w),
             ),

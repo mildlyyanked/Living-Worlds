@@ -12,6 +12,7 @@ const String worldTimeline = 'WORLD';
 
 enum EventType {
   worldCreated,
+  worldConfigured,
   characterCreated,
   itemDefCreated,
   turnCommitted,

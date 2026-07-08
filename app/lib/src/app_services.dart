@@ -198,13 +198,14 @@ class AppServices {
     _open[id] = repo;
 
     final service = WorldService(repo);
+    final schema = WorldSchema.standard();
     await service.createWorld(
       World(
         id: id,
         name: name,
         seed: seed ?? DateTime.now().millisecondsSinceEpoch & 0xFFFFFF,
         createdAt: DateTime.now().toUtc(),
-        schema: WorldSchema.standard(),
+        schema: schema,
       ),
     );
     final charId = characterName.toLowerCase().replaceAll(
@@ -217,13 +218,62 @@ class AppServices {
         worldId: id,
         name: characterName,
         bio: 'A newcomer to $name.',
-        stats: const {'vitality': 100, 'hunger': 0, 'fatigue': 0, 'coin': 10},
+        stats: {for (final d in schema.statDefs) d.key: d.defaultValue},
       ),
     );
     for (final def in _starterItems(id)) {
       await service.createItemDef(def);
     }
     return WorldRef(id: id, name: name, path: path);
+  }
+
+  /// Duplicate an existing world into a brand-new one: copy the full event log
+  /// (rewriting the world id + name), the revert markers, and the seeding
+  /// workshop threads. Returns the new world's ref.
+  Future<WorldRef> duplicateWorld(WorldRef source) async {
+    final sourceRepo = await openRepo(source);
+    final events = await sourceRepo.eventsUpTo(-1);
+    final reverted = await sourceRepo.revertedSeqs();
+
+    final newId = 'world-${DateTime.now().millisecondsSinceEpoch}';
+    final newName = '${source.name} (copy)';
+    final newPath = source.path == 'memory'
+        ? 'memory'
+        : '${(await _worldsDir()).path}/$newId.db';
+    final newRepo = _repoFactory(newPath);
+    _open[newId] = newRepo;
+
+    final rewritten = <Event>[
+      for (final e in events) _rewriteEvent(e, newId, newName),
+    ];
+    await newRepo.appendEvents(rewritten);
+    await newRepo.setRevertMarkers(reverted);
+
+    // Carry over the seeding workshop threads under the new world's key.
+    final threads = await seedingThreads.load(source.id);
+    if (threads.isNotEmpty) await seedingThreads.save(newId, threads);
+
+    return WorldRef(id: newId, name: newName, path: newPath);
+  }
+
+  /// Rewrite an event onto a new world id. Only the top-level world id and the
+  /// worldCreated record's id/name change; inner payloads replay identically.
+  static Event _rewriteEvent(Event e, String newId, String newName) {
+    final json = e.toJson();
+    json['world_id'] = newId;
+    if (e.type == EventType.worldCreated) {
+      final payload = Map<String, Object?>.of(
+        json['payload'] as Map<String, Object?>? ?? const {},
+      );
+      final world = Map<String, Object?>.of(
+        payload['world'] as Map<String, Object?>? ?? const {},
+      );
+      world['id'] = newId;
+      world['name'] = newName;
+      payload['world'] = world;
+      json['payload'] = payload;
+    }
+    return Event.fromJson(json);
   }
 
   static List<ItemDef> _starterItems(String worldId) => [

@@ -34,6 +34,7 @@ class TurnInput {
     required this.output,
     this.nonLethal = false,
     this.allowUncappedClock = false,
+    this.observationOnly = false,
   });
 
   final String actorId;
@@ -45,6 +46,12 @@ class TurnInput {
 
   /// Explicit declared skips may exceed PER_TURN_CAP (§4.4).
   final bool allowUncappedClock;
+
+  /// An observation: the actor looks/examines to gain information. The engine
+  /// discards every proposed delta and advances no clock — no consequences to
+  /// stats, status, inventory, relationships or quests, and no death roll.
+  /// Wiki candidates are still queued (observing reveals lore worth keeping).
+  final bool observationOnly;
 }
 
 class TurnResult {
@@ -107,11 +114,37 @@ class TurnEngine {
     final seedTurn = seedForTurn(world.seed, turnSeq);
     final turnId = 'turn-$turnSeq';
 
+    // ---- Observation: a non-consequential look. No deltas, no clock, no
+    // death — only the narrative and any surfaced wiki candidates. ----
+    if (input.observationOnly) {
+      return _observationTurn(
+        world: world,
+        actor: actor,
+        input: input,
+        turnSeq: turnSeq,
+        turnId: turnId,
+        now: now,
+        toolExchanges: toolExchanges,
+        contextSections: contextSections,
+        usage: usage,
+        rawLlmJson: rawLlmJson,
+      );
+    }
+
     final decisions = <DeltaDecision>[];
     final notes = <String>[];
     final notifications = <String>[];
     // Delta events (seq assigned after TurnCommitted at the end).
     final deltaEvents = <_PendingEvent>[];
+
+    // Prose fallback (§14): the model ignored the JSON contract. The parser
+    // already emptied the deltas; we just log it and flag the UI so it is
+    // visible and monitorable.
+    if (input.output.narratedInProse) {
+      notes.add('prose fallback: model replied in prose instead of JSON; '
+          'committed as non-consequential (no state changes). Monitored (§14).');
+      notifications.add('Narration only (no state change)');
+    }
 
     // Working copies of actor state, updated as proposals are accepted so
     // later validations see earlier effects.
@@ -721,6 +754,8 @@ class TurnEngine {
         'clock_from': clockFrom,
         'clock_to': clockTo,
         'peril_hint': input.output.peril,
+        'prose_fallback': input.output.narratedInProse,
+        'observation': false,
       },
       cause: {
         'turn_id': turnId,
@@ -771,6 +806,100 @@ class TurnEngine {
       healthBefore: healthBefore,
       healthAfter: healthAfter,
       notifications: notifications,
+    );
+  }
+
+  /// Build a non-consequential observation turn: only a TurnCommitted (marked
+  /// `observation: true`, clock unchanged) plus any queued wiki candidates.
+  TurnResult _observationTurn({
+    required dynamic world,
+    required Character actor,
+    required TurnInput input,
+    required int turnSeq,
+    required String turnId,
+    required DateTime now,
+    required List<LlmToolExchange> toolExchanges,
+    required List<ContextSectionReport> contextSections,
+    required LlmUsage usage,
+    String? rawLlmJson,
+  }) {
+    final report = TurnDebugReport(
+      rawLlmJson: rawLlmJson,
+      decisions: const [],
+      toolExchanges: toolExchanges,
+      deathEval: null,
+      contextSections: contextSections,
+      usage: usage,
+      notes: const [
+        'observation: no deltas applied, clock unchanged, no death roll '
+            '(§ observe)'
+      ],
+    );
+
+    final clock = actor.subjectiveClock;
+    final events = <Event>[];
+    var seq = turnSeq;
+    events.add(Event(
+      id: 'evt-$seq',
+      worldId: world.id as String,
+      seq: seq++,
+      timeline: actor.id,
+      subjectiveClock: clock,
+      type: EventType.turnCommitted,
+      payload: {
+        'turn_id': turnId,
+        'actor_id': actor.id,
+        'narrative': input.output.narrative,
+        'user_input': input.userInput,
+        'clock_from': clock,
+        'clock_to': clock,
+        'peril_hint': false,
+        'prose_fallback': input.output.narratedInProse,
+        'observation': true,
+      },
+      cause: {
+        'turn_id': turnId,
+        'user_input_ref': input.userInput,
+        'llm_raw_ref': rawLlmJson,
+        'debug_report': report.toJson(),
+      },
+      createdAt: now,
+    ));
+    var candIdx = 0;
+    for (final cand in input.output.wikiCandidates) {
+      final id = cand.id.isEmpty ? 'cand-$turnSeq-${candIdx++}' : cand.id;
+      events.add(Event(
+        id: 'evt-$seq',
+        worldId: world.id as String,
+        seq: seq++,
+        timeline: actor.id,
+        subjectiveClock: clock,
+        type: EventType.wikiCandidateQueued,
+        payload: {
+          'candidate': WikiCandidate(
+            id: id,
+            title: cand.title,
+            category: cand.category,
+            body: cand.body,
+            tags: cand.tags,
+            clockRef: cand.clockRef,
+            sourceTurnSeq: turnSeq,
+          ).toJson(),
+        },
+        cause: {'turn_id': turnId},
+        createdAt: now,
+      ));
+    }
+
+    return TurnResult(
+      events: events,
+      report: report,
+      died: false,
+      clockFrom: clock,
+      clockTo: clock,
+      healthBefore: 0,
+      healthAfter: 0,
+      notifications: const ['Observation'],
     );
   }
 

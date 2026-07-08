@@ -228,8 +228,9 @@ class OpenRouterLlmClient implements LlmClient {
       }
     }
 
-    // 3. Pure prose — narrate it, change nothing.
-    return TurnOutput(narrative: raw.trim());
+    // 3. Pure prose — narrate it, change nothing, and flag it so the turn is
+    // logged as a non-consequential prose fallback (monitored, §14).
+    return TurnOutput(narrative: raw.trim(), narratedInProse: true);
   }
 
   static Map<String, Object?>? _tryDecodeObject(String s) {

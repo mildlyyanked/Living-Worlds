@@ -24,6 +24,7 @@ class TurnRecord {
     required this.userInput,
     required this.narrative,
     required this.clockAfter,
+    this.observation = false,
   });
 
   final int seq;
@@ -32,12 +33,17 @@ class TurnRecord {
   final String narrative;
   final int clockAfter;
 
+  /// A non-consequential observation (§ observe): kept in history for context
+  /// and display, but advanced no clock and committed no deltas.
+  final bool observation;
+
   Map<String, Object?> toJson() => {
         'seq': seq,
         'timeline': timeline,
         'user_input': userInput,
         'narrative': narrative,
         'clock_after': clockAfter,
+        'observation': observation,
       };
 }
 
@@ -95,6 +101,11 @@ class WorldProjection {
   final List<TurnRecord> turnHistory = [];
   final List<SharedEventRecord> sharedEvents = [];
 
+  /// Monitoring (§14): count of committed gameplay turns and how many of them
+  /// were non-consequential prose fallbacks (model ignored the JSON contract).
+  int turnCount = 0;
+  int proseFallbackTurns = 0;
+
   /// Highest seq applied.
   int lastSeq = -1;
 
@@ -106,6 +117,23 @@ class WorldProjection {
       if (c.alive) maxClock = math.max(maxClock, c.subjectiveClock);
     }
     return maxClock;
+  }
+
+  /// Id of the wiki entry the user designated as the world overview, if any.
+  String? get worldBioEntryId => world?.settings['world_bio_entry_id'] as String?;
+
+  /// A compact "basic bio of the world" for character/scenario generation.
+  /// Prefers the user-designated overview entry's body; otherwise falls back
+  /// to the compact index of all entries. Empty when the wiki is empty.
+  String worldBioText() {
+    final designated = worldBioEntryId;
+    if (designated != null && wiki[designated] != null) {
+      final e = wiki[designated]!;
+      return '${e.title}\n${e.body}';
+    }
+    if (wiki.isEmpty) return '';
+    final lines = wiki.values.map((w) => '- ${w.summaryLine}').toList()..sort();
+    return lines.join('\n');
   }
 
   List<TurnRecord> turnsFor(String timeline) => [
@@ -148,6 +176,13 @@ class WorldProjection {
       case EventType.worldCreated:
         world = World.fromJson(
             e.payload['world'] as Map<String, Object?>? ?? e.payload);
+      case EventType.worldConfigured:
+        final w = world;
+        if (w != null) {
+          final merged = Map<String, Object?>.of(w.settings)
+            ..addAll(e.payload['settings'] as Map<String, Object?>? ?? const {});
+          world = w.copyWith(settings: merged);
+        }
       case EventType.characterCreated:
         final c = Character.fromJson(
             e.payload['character'] as Map<String, Object?>? ?? e.payload);
@@ -206,11 +241,13 @@ class WorldProjection {
   void _applyTurnCommitted(Event e) {
     final actorId = e.payload['actor_id'] as String;
     final clockTo = e.payload['clock_to'] as int;
+    final observation = e.payload['observation'] as bool? ?? false;
     final c = characters[actorId];
     if (c != null) {
       characters[actorId] = c.copyWith(subjectiveClock: clockTo);
     }
     // Idempotent history: replace any record with the same seq.
+    final firstApply = !turnHistory.any((t) => t.seq == e.seq);
     turnHistory.removeWhere((t) => t.seq == e.seq);
     turnHistory.add(TurnRecord(
       seq: e.seq,
@@ -218,8 +255,15 @@ class WorldProjection {
       userInput: e.payload['user_input'] as String? ?? '',
       narrative: e.payload['narrative'] as String? ?? '',
       clockAfter: clockTo,
+      observation: observation,
     ));
     turnHistory.sort((a, b) => a.seq.compareTo(b.seq));
+    // Monitoring counters (only consequential turns count; observations are
+    // excluded). Guarded on first apply so replay idempotency holds.
+    if (firstApply && !observation) {
+      turnCount++;
+      if (e.payload['prose_fallback'] as bool? ?? false) proseFallbackTurns++;
+    }
   }
 
   void _applyStatChanged(Map<String, Object?> p) {
@@ -395,5 +439,7 @@ class WorldProjection {
         'shared_events': [for (final s in sharedEvents) s.toJson()],
         'last_seq': lastSeq,
         'world_clock': worldClock,
+        'turn_count': turnCount,
+        'prose_fallback_turns': proseFallbackTurns,
       };
 }

@@ -8,6 +8,7 @@ export 'src/context/assembler.dart';
 export 'src/context/summarizer.dart';
 export 'src/cost/cost_log.dart';
 export 'src/debug/report.dart';
+export 'src/engine/character_generator.dart';
 export 'src/engine/config.dart';
 export 'src/engine/death.dart';
 export 'src/engine/health.dart';

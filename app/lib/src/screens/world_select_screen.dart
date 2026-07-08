@@ -51,6 +51,17 @@ class _WorldSelectScreenState extends State<WorldSelectScreen> {
     _refresh();
   }
 
+  Future<void> _duplicate(WorldRef ref) async {
+    final services = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(content: Text('Duplicating ${ref.name}…')),
+    );
+    await services.duplicateWorld(ref);
+    messenger.hideCurrentSnackBar();
+    _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -94,7 +105,28 @@ class _WorldSelectScreenState extends State<WorldSelectScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.public, size: 40),
+                          Row(
+                            children: [
+                              const Icon(Icons.public, size: 40),
+                              const Spacer(),
+                              PopupMenuButton<String>(
+                                key: Key('world-menu-${w.id}'),
+                                onSelected: (v) {
+                                  if (v == 'duplicate') _duplicate(w);
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'duplicate',
+                                    child: ListTile(
+                                      leading: Icon(Icons.copy_all),
+                                      title: Text('Duplicate'),
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                           const Spacer(),
                           Text(
                             w.name,

@@ -22,6 +22,15 @@ class World {
   final Map<String, Object?> settings;
   final WorldSchema schema;
 
+  World copyWith({String? name, Map<String, Object?>? settings}) => World(
+        id: id,
+        name: name ?? this.name,
+        seed: seed,
+        createdAt: createdAt,
+        settings: settings ?? this.settings,
+        schema: schema,
+      );
+
   Map<String, Object?> toJson() => {
         'id': id,
         'name': name,

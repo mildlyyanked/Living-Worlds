@@ -34,6 +34,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
   _Overlay _overlay = _Overlay.none;
   final Set<String> _present = {};
 
+  /// When true the next send is an observation (no time, no consequences).
+  bool _observing = false;
+
   WorldStore get store => widget.store;
 
   @override
@@ -52,11 +55,13 @@ class _GameplayScreenState extends State<GameplayScreen> {
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty || store.busy) return;
+    final observing = _observing;
     _input.clear();
     final turn = await store.playTurn(
       actorId: widget.characterId,
       input: text,
       presentCharacterIds: _present.toList(),
+      observe: observing,
     );
     if (turn == null) return; // error surfaced via store.lastError
     setState(() {
@@ -68,6 +73,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
           report: turn.report,
           turnSeq: turn.turnSeq,
           died: turn.died,
+          observation: observing,
         ),
       );
     });
@@ -105,6 +111,8 @@ class _GameplayScreenState extends State<GameplayScreen> {
           store: store,
           character: character,
           onUndoDeath: _undoDeath,
+          observing: _observing,
+          onToggleObserve: (v) => setState(() => _observing = v),
         );
         final info = _InfoPanel(
           projection: p,
@@ -223,6 +231,8 @@ class _ChatColumn extends StatelessWidget {
     required this.store,
     required this.character,
     required this.onUndoDeath,
+    required this.observing,
+    required this.onToggleObserve,
   });
 
   final List<ChatItem> session;
@@ -232,6 +242,8 @@ class _ChatColumn extends StatelessWidget {
   final WorldStore store;
   final Character character;
   final VoidCallback onUndoDeath;
+  final bool observing;
+  final ValueChanged<bool> onToggleObserve;
 
   @override
   Widget build(BuildContext context) {
@@ -245,6 +257,31 @@ class _ChatColumn extends StatelessWidget {
               controller: scroll,
               padding: const EdgeInsets.all(12),
               children: [
+                if (character.openingScenario.isNotEmpty)
+                  Card(
+                    key: const Key('opening-scenario'),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.auto_stories, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Opening',
+                                style: Theme.of(context).textTheme.labelMedium,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(character.openingScenario),
+                        ],
+                      ),
+                    ),
+                  ),
                 for (final item in session) _TurnBubble(item: item),
                 // Non-blocking pending indicator: the screen stays scrollable
                 // and readable while the model thinks; only send is disabled.
@@ -305,34 +342,69 @@ class _ChatColumn extends StatelessWidget {
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('turn-input'),
-                    controller: input,
-                    // Editable while a turn is in flight so the next action
-                    // can be drafted; only submission waits.
-                    enabled: !dead,
-                    // Multi-line: Return inserts a newline; send via the
-                    // button. Grows up to 6 lines, then scrolls.
-                    minLines: 1,
-                    maxLines: 6,
-                    keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.newline,
-                    decoration: InputDecoration(
-                      hintText: dead
-                          ? 'Timeline frozen'
-                          : 'What does ${character.name} do?',
-                      border: const OutlineInputBorder(),
+                if (!dead)
+                  // Act advances the world and can change state; Observe is a
+                  // free, consequence-free look to gather information.
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: SegmentedButton<bool>(
+                      key: const Key('mode-toggle'),
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      segments: const [
+                        ButtonSegment(
+                          value: false,
+                          icon: Icon(Icons.directions_run, size: 16),
+                          label: Text('Act'),
+                        ),
+                        ButtonSegment(
+                          value: true,
+                          icon: Icon(Icons.visibility, size: 16),
+                          label: Text('Observe'),
+                        ),
+                      ],
+                      selected: {observing},
+                      onSelectionChanged: (s) => onToggleObserve(s.first),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  key: const Key('send-turn'),
-                  icon: const Icon(Icons.send),
-                  onPressed: dead || store.busy ? null : onSend,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const Key('turn-input'),
+                        controller: input,
+                        // Editable while a turn is in flight so the next action
+                        // can be drafted; only submission waits.
+                        enabled: !dead,
+                        // Multi-line: Return inserts a newline; send via the
+                        // button. Grows up to 6 lines, then scrolls.
+                        minLines: 1,
+                        maxLines: 6,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        decoration: InputDecoration(
+                          hintText: dead
+                              ? 'Timeline frozen'
+                              : observing
+                                  ? 'What does ${character.name} examine?'
+                                  : 'What does ${character.name} do?',
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      key: const Key('send-turn'),
+                      icon: Icon(observing ? Icons.visibility : Icons.send),
+                      onPressed: dead || store.busy ? null : onSend,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -351,6 +423,7 @@ class _TurnBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final obs = item.observation;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -360,17 +433,25 @@ class _TurnBubble extends StatelessWidget {
             color: theme.colorScheme.primaryContainer,
             child: Padding(
               padding: const EdgeInsets.all(10),
-              child: Text('> ${item.userInput}'),
+              child: Text('${obs ? '👁 ' : '> '}${item.userInput}'),
             ),
           ),
         ),
         Card(
+          color: obs ? theme.colorScheme.surfaceContainerHighest : null,
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: Text(item.narrative, style: theme.textTheme.bodyLarge),
+            child: Text(
+              item.narrative,
+              style: obs
+                  ? theme.textTheme.bodyLarge
+                      ?.copyWith(fontStyle: FontStyle.italic)
+                  : theme.textTheme.bodyLarge,
+            ),
           ),
         ),
-        if (item.notifications.isNotEmpty)
+        // Observations carry no mechanical chips (they change nothing).
+        if (!obs && item.notifications.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Wrap(
@@ -415,6 +496,17 @@ class _InfoPanel extends StatelessWidget {
       children: [
         Text(character.name, style: Theme.of(context).textTheme.titleLarge),
         Text(character.bio, style: Theme.of(context).textTheme.bodySmall),
+        if (projection.proseFallbackTurns > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              '⚠ ${projection.proseFallbackTurns}/${projection.turnCount} '
+              'turns were narration-only (model returned prose). Consider a '
+              'model that honors JSON in Settings.',
+              key: const Key('prose-monitor'),
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ),
         const SizedBox(height: 12),
         Row(
           children: [

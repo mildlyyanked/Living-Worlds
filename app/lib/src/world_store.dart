@@ -17,6 +17,7 @@ class ChatItem {
     required this.report,
     required this.turnSeq,
     this.died = false,
+    this.observation = false,
   });
 
   final String userInput;
@@ -25,6 +26,9 @@ class ChatItem {
   final TurnDebugReport? report;
   final int turnSeq;
   final bool died;
+
+  /// A non-consequential observation (no clock, no deltas).
+  final bool observation;
 }
 
 class WorldStore extends ChangeNotifier {
@@ -117,6 +121,7 @@ class WorldStore extends ChangeNotifier {
           notifications: const [],
           report: null,
           turnSeq: t.seq,
+          observation: t.observation,
         ),
       );
     }
@@ -139,13 +144,52 @@ class WorldStore extends ChangeNotifier {
     required String actorId,
     required String input,
     List<String> presentCharacterIds = const [],
+    bool observe = false,
   }) => _guard(
     () => _controller().playTurn(
       actorId: actorId,
       userInput: input,
       presentCharacterIds: presentCharacterIds,
+      observe: observe,
     ),
   );
+
+  /// Generate a character from a seeding paragraph, then create it starting at
+  /// the current world clock, with a structured bio, opening scenario and any
+  /// background quest (§ onboarding).
+  Future<Character?> createSeededCharacter({
+    required String name,
+    required String seedParagraph,
+  }) => _guard(() async {
+    final p = projection!;
+    final schema = p.world!.schema;
+    final id = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    final generated = await CharacterGenerator(llm: services.buildLlm())
+        .generate(
+          name: name,
+          seedParagraph: seedParagraph,
+          worldName: ref.name,
+          worldBio: p.worldBioText(),
+        );
+    final character = Character(
+      id: id,
+      worldId: ref.id,
+      name: name,
+      bio: generated.bio,
+      openingScenario: generated.openingScenario,
+      subjectiveClock: p.worldClock,
+      stats: {for (final d in schema.statDefs) d.key: d.defaultValue},
+      quests: [
+        if (generated.startingQuest != null) generated.startingQuest!,
+      ],
+    );
+    await worldService.createCharacter(character);
+    return character;
+  });
+
+  Future<void> designateWorldBio(String? entryId) async {
+    await _guard(() => worldService.designateWorldBio(ref.id, entryId));
+  }
 
   Future<TimeSkipResult?> timeSkip({
     required String characterId,

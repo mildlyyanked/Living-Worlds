@@ -67,23 +67,22 @@ class CharactersTab extends StatelessWidget {
   }
 
   Future<void> _newCharacter(BuildContext context) async {
-    final name = await showDialog<String>(
+    final result = await showDialog<(String, String)>(
       context: context,
       builder: (context) => const _NewCharacterDialog(),
     );
-    if (name == null || name.isEmpty) return;
+    if (result == null) return;
+    final (name, seed) = result;
+    if (name.isEmpty) return;
     final id = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
     if (store.projection!.characters.containsKey(id)) return;
-    await store.worldService.createCharacter(
-      Character(
-        id: id,
-        worldId: store.ref.id,
-        name: name,
-        bio: 'A newcomer to ${store.ref.name}.',
-        stats: const {'vitality': 100, 'hunger': 0, 'fatigue': 0, 'coin': 10},
-      ),
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(content: Text('Bringing $name to life…')),
     );
-    await store.refresh();
+    await store.createSeededCharacter(name: name, seedParagraph: seed);
+    messenger.hideCurrentSnackBar();
   }
 
   @override
@@ -115,8 +114,10 @@ class CharactersTab extends StatelessWidget {
               ),
               trailing: c.alive
                   ? const Icon(Icons.play_arrow)
-                  : const Icon(Icons.block),
-              onTap: c.alive ? () => _openCharacter(context, c) : null,
+                  : const Icon(Icons.history_edu),
+              // Dead characters open too — their dialogue stays readable; the
+              // gameplay screen keeps the input disabled (timeline frozen).
+              onTap: () => _openCharacter(context, c),
             ),
         ],
       ),
@@ -133,10 +134,12 @@ class _NewCharacterDialog extends StatefulWidget {
 
 class _NewCharacterDialogState extends State<_NewCharacterDialog> {
   final _name = TextEditingController();
+  final _seed = TextEditingController();
 
   @override
   void dispose() {
     _name.dispose();
+    _seed.dispose();
     super.dispose();
   }
 
@@ -144,11 +147,35 @@ class _NewCharacterDialogState extends State<_NewCharacterDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('New character'),
-      content: TextField(
-        key: const Key('new-character-name'),
-        controller: _name,
-        decoration: const InputDecoration(labelText: 'Name'),
-        autofocus: true,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const Key('new-character-name'),
+              controller: _name,
+              decoration: const InputDecoration(labelText: 'Name'),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('new-character-seed'),
+              controller: _seed,
+              minLines: 3,
+              maxLines: 6,
+              keyboardType: TextInputType.multiline,
+              decoration: const InputDecoration(
+                labelText: 'Seeding paragraph',
+                hintText: 'Who are they? Describe their look, personality, '
+                    'standing, and background. We generate a bio, an opening '
+                    'scenario, and maybe a quest from this.',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -157,7 +184,8 @@ class _NewCharacterDialogState extends State<_NewCharacterDialog> {
         ),
         FilledButton(
           key: const Key('create-character'),
-          onPressed: () => Navigator.pop(context, _name.text.trim()),
+          onPressed: () =>
+              Navigator.pop(context, (_name.text.trim(), _seed.text.trim())),
           child: const Text('Create'),
         ),
       ],

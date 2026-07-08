@@ -56,6 +56,17 @@ class WorldService {
   Future<Event> createItemDef(ItemDef def) => _append(
       def.worldId, EventType.itemDefCreated, {'item_def': def.toJson()});
 
+  /// Designate (or clear) the wiki entry that serves as the world's basic bio,
+  /// used as context when generating new characters/scenarios (§ onboarding).
+  /// Passing null clears the designation.
+  Future<Event> designateWorldBio(String worldId, String? entryId) => _append(
+        worldId,
+        EventType.worldConfigured,
+        {
+          'settings': {'world_bio_entry_id': entryId}
+        },
+      );
+
   /// Seeding session output (§5.1): create a wiki entry as an event.
   Future<Event> createWikiEntry(WikiEntry entry,
       {Map<String, Object?> cause = const {}}) async {

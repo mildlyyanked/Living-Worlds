@@ -123,11 +123,27 @@ never assume a proposal succeeded. Return strict JSON:
 Tools available before finalizing: query_wiki, query_relationship,
 query_inventory. peril is a hint; the engine decides deaths.''';
 
-  /// Run one full gameplay turn for [actorId].
+  /// Observation prompt: the player looks/examines to learn, not to act. The
+  /// engine discards any deltas regardless, but we also ask the model to keep
+  /// the turn purely descriptive so the narrative reads as an observation.
+  static const String observeSystemPrompt = '''
+You are the narrative engine of a living world. The player is OBSERVING, not
+acting: they examine their surroundings, someone, or something to gain
+information. Describe vividly in second person what the character perceives —
+details, clues, atmosphere, what can be inferred. Do NOT advance time and do
+NOT change any state. Return strict JSON:
+{"narrative": "...", "proposed_deltas": {}, "peril": false,
+"wiki_candidates": [{"title":"","category":"","body":"","tags":[]}]}
+You may surface wiki_candidates for notable facts you reveal. Tools available:
+query_wiki, query_relationship, query_inventory.''';
+
+  /// Run one full gameplay turn for [actorId]. When [observe] is true the turn
+  /// is a non-consequential observation: no clock advance, no deltas, no death.
   Future<CommittedTurn> playTurn({
     required String actorId,
     required String userInput,
     List<String> presentCharacterIds = const [],
+    bool observe = false,
   }) async {
     // 1. Assemble context (budgeted, §6).
     final projection = await repo.projection();
@@ -179,7 +195,7 @@ query_inventory. peril is a hint; the engine decides deaths.''';
     // 2. LLM with tool loop.
     final started = _clock();
     final llmResult = await llm.completeTurn(
-      systemPrompt: systemPrompt,
+      systemPrompt: observe ? observeSystemPrompt : systemPrompt,
       context: assembled.text,
       userInput: userInput,
       tools: RepositoryToolHandler(repo, projection),
@@ -205,6 +221,7 @@ query_inventory. peril is a hint; the engine decides deaths.''';
         actorId: actorId,
         userInput: userInput,
         output: llmResult.output,
+        observationOnly: observe,
       ),
       now: _clock(),
       toolExchanges: llmResult.toolExchanges,
@@ -223,7 +240,9 @@ query_inventory. peril is a hint; the engine decides deaths.''';
       for (final id in presentCharacterIds)
         if (id != actorId && projection.characters.containsKey(id)) id
     ];
-    if (others.isNotEmpty) {
+    // Observations write no canon: nothing happened that others must narrate
+    // around.
+    if (!observe && others.isNotEmpty) {
       final afterTurn = await repo.projection();
       final narrative = llmResult.output.narrative;
       await rendezvous.commitSharedEvent(

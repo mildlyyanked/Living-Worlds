@@ -215,6 +215,7 @@ class TurnOutput {
     this.proposedDeltas = const ProposedDeltas(),
     this.peril = false,
     this.wikiCandidates = const [],
+    this.narratedInProse = false,
   });
 
   final String narrative;
@@ -224,11 +225,18 @@ class TurnOutput {
   final bool peril;
   final List<WikiCandidate> wikiCandidates;
 
+  /// True when the model ignored the strict-JSON contract and replied in
+  /// prose, so the whole reply was salvaged as narrative with empty deltas.
+  /// The turn is committed as non-consequential; we log it and monitor how
+  /// often it happens (a signal the pinned model doesn't honor json_object).
+  final bool narratedInProse;
+
   Map<String, Object?> toJson() => {
         'narrative': narrative,
         'proposed_deltas': proposedDeltas.toJson(),
         'peril': peril,
         'wiki_candidates': [for (final c in wikiCandidates) c.toJson()],
+        'narrated_in_prose': narratedInProse,
       };
 
   factory TurnOutput.fromJson(Map<String, Object?> json) => TurnOutput(
@@ -243,5 +251,6 @@ class TurnOutput {
               in json['wiki_candidates'] as List<Object?>? ?? <Object?>[])
             WikiCandidate.fromJson(c! as Map<String, Object?>)
         ],
+        narratedInProse: json['narrated_in_prose'] as bool? ?? false,
       );
 }

@@ -43,6 +43,7 @@ class Character {
     required this.name,
     this.portrait,
     this.bio = '',
+    this.openingScenario = '',
     this.subjectiveClock = 0,
     this.alive = true,
     this.stats = const {},
@@ -56,6 +57,10 @@ class Character {
   final String name;
   final String? portrait;
   final String bio;
+
+  /// The character's generated opening situation, shown as the first scene of
+  /// gameplay before any turn is played. Static context, not a logged turn.
+  final String openingScenario;
 
   /// Minutes of subjective in-world time lived so far.
   final int subjectiveClock;
@@ -73,6 +78,7 @@ class Character {
     List<ItemInstance>? inventory,
     List<Quest>? quests,
     String? bio,
+    String? openingScenario,
   }) =>
       Character(
         id: id,
@@ -80,6 +86,7 @@ class Character {
         name: name,
         portrait: portrait,
         bio: bio ?? this.bio,
+        openingScenario: openingScenario ?? this.openingScenario,
         subjectiveClock: subjectiveClock ?? this.subjectiveClock,
         alive: alive ?? this.alive,
         stats: stats ?? this.stats,
@@ -119,6 +126,7 @@ class Character {
         'name': name,
         'portrait': portrait,
         'bio': bio,
+        'opening_scenario': openingScenario,
         'subjective_clock': subjectiveClock,
         'alive': alive,
         'stats': stats,
@@ -133,6 +141,7 @@ class Character {
         name: json['name'] as String,
         portrait: json['portrait'] as String?,
         bio: json['bio'] as String? ?? '',
+        openingScenario: json['opening_scenario'] as String? ?? '',
         subjectiveClock: json['subjective_clock'] as int? ?? 0,
         alive: json['alive'] as bool? ?? true,
         stats: {
