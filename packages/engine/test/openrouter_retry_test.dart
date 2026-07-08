@@ -19,7 +19,8 @@ String _okBody() => jsonEncode({
       'choices': [
         {
           'message': {
-            'content': jsonEncode({'narrative': 'ok', 'proposed_deltas': {}}),
+            'content': jsonEncode(
+                {'narrative': 'ok', 'proposed_deltas': <String, Object?>{}}),
           }
         }
       ],
