@@ -473,10 +473,7 @@ void main() {
 
     // Advance the world clock via Ash first.
     await openAsh(tester);
-    await tester.enterText(
-      find.byKey(const Key('turn-input')),
-      'walk a while',
-    );
+    await tester.enterText(find.byKey(const Key('turn-input')), 'walk a while');
     await tester.tap(find.byKey(const Key('send-turn')));
     await tester.pumpAndSettle();
     await tester.pageBack();

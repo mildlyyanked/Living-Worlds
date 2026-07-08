@@ -53,7 +53,10 @@ void main() {
             ),
             wikiCandidates: [
               WikiCandidate(
-                  id: '', title: 'Mural', category: 'Lore', body: 'A drowned city.')
+                  id: '',
+                  title: 'Mural',
+                  category: 'Lore',
+                  body: 'A drowned city.')
             ],
           ),
         ),
@@ -87,7 +90,8 @@ void main() {
       final p = await repo.projection();
       expect(p.characters['ash']!.subjectiveClock, 0);
       expect(p.turnsFor('ash').single.observation, isTrue);
-      expect(p.turnCount, 0, reason: 'observations are not consequential turns');
+      expect(p.turnCount, 0,
+          reason: 'observations are not consequential turns');
     });
   });
 

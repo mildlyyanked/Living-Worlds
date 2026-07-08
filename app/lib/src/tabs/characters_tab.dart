@@ -78,9 +78,7 @@ class CharactersTab extends StatelessWidget {
     if (store.projection!.characters.containsKey(id)) return;
     if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      SnackBar(content: Text('Bringing $name to life…')),
-    );
+    messenger.showSnackBar(SnackBar(content: Text('Bringing $name to life…')));
     await store.createSeededCharacter(name: name, seedParagraph: seed);
     messenger.hideCurrentSnackBar();
   }
@@ -167,7 +165,8 @@ class _NewCharacterDialogState extends State<_NewCharacterDialog> {
               keyboardType: TextInputType.multiline,
               decoration: const InputDecoration(
                 labelText: 'Seeding paragraph',
-                hintText: 'Who are they? Describe their look, personality, '
+                hintText:
+                    'Who are they? Describe their look, personality, '
                     'standing, and background. We generate a bio, an opening '
                     'scenario, and maybe a quest from this.',
                 border: OutlineInputBorder(),

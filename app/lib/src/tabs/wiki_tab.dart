@@ -129,9 +129,8 @@ class _WikiTabState extends State<WikiTab> {
               ),
               trailing: PopupMenuButton<String>(
                 key: Key('wiki-menu-${w.id}'),
-                onSelected: (v) => store.designateWorldBio(
-                  v == 'set' ? w.id : null,
-                ),
+                onSelected: (v) =>
+                    store.designateWorldBio(v == 'set' ? w.id : null),
                 itemBuilder: (context) => [
                   if (p.worldBioEntryId != w.id)
                     const PopupMenuItem(

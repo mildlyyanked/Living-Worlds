@@ -132,15 +132,18 @@ otherwise use null.''';
     if (bioField is Map<String, Object?>) {
       String field(String k) => (bioField[k] as String?)?.trim() ?? '';
       final parts = <String>[
-        if (field('appearance').isNotEmpty) 'Appearance: ${field('appearance')}',
+        if (field('appearance').isNotEmpty)
+          'Appearance: ${field('appearance')}',
         if (field('personality').isNotEmpty)
           'Personality: ${field('personality')}',
         if (field('status').isNotEmpty) 'Status: ${field('status')}',
-        if (field('background').isNotEmpty) 'Background: ${field('background')}',
+        if (field('background').isNotEmpty)
+          'Background: ${field('background')}',
       ];
       if (parts.isNotEmpty) return parts.join('\n');
     }
-    if (bioField is String && bioField.trim().isNotEmpty) return bioField.trim();
+    if (bioField is String && bioField.trim().isNotEmpty)
+      return bioField.trim();
     return seedParagraph.trim();
   }
 

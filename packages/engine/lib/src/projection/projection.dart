@@ -120,7 +120,8 @@ class WorldProjection {
   }
 
   /// Id of the wiki entry the user designated as the world overview, if any.
-  String? get worldBioEntryId => world?.settings['world_bio_entry_id'] as String?;
+  String? get worldBioEntryId =>
+      world?.settings['world_bio_entry_id'] as String?;
 
   /// A compact "basic bio of the world" for character/scenario generation.
   /// Prefers the user-designated overview entry's body; otherwise falls back
@@ -180,7 +181,8 @@ class WorldProjection {
         final w = world;
         if (w != null) {
           final merged = Map<String, Object?>.of(w.settings)
-            ..addAll(e.payload['settings'] as Map<String, Object?>? ?? const {});
+            ..addAll(
+                e.payload['settings'] as Map<String, Object?>? ?? const {});
           world = w.copyWith(settings: merged);
         }
       case EventType.characterCreated:

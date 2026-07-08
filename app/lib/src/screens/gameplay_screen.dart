@@ -260,7 +260,9 @@ class _ChatColumn extends StatelessWidget {
                 if (character.openingScenario.isNotEmpty)
                   Card(
                     key: const Key('opening-scenario'),
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(
@@ -392,8 +394,8 @@ class _ChatColumn extends StatelessWidget {
                           hintText: dead
                               ? 'Timeline frozen'
                               : observing
-                                  ? 'What does ${character.name} examine?'
-                                  : 'What does ${character.name} do?',
+                              ? 'What does ${character.name} examine?'
+                              : 'What does ${character.name} do?',
                           border: const OutlineInputBorder(),
                         ),
                       ),
@@ -444,8 +446,9 @@ class _TurnBubble extends StatelessWidget {
             child: Text(
               item.narrative,
               style: obs
-                  ? theme.textTheme.bodyLarge
-                      ?.copyWith(fontStyle: FontStyle.italic)
+                  ? theme.textTheme.bodyLarge?.copyWith(
+                      fontStyle: FontStyle.italic,
+                    )
                   : theme.textTheme.bodyLarge,
             ),
           ),

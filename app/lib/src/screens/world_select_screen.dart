@@ -54,9 +54,7 @@ class _WorldSelectScreenState extends State<WorldSelectScreen> {
   Future<void> _duplicate(WorldRef ref) async {
     final services = AppScope.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      SnackBar(content: Text('Duplicating ${ref.name}…')),
-    );
+    messenger.showSnackBar(SnackBar(content: Text('Duplicating ${ref.name}…')));
     await services.duplicateWorld(ref);
     messenger.hideCurrentSnackBar();
     _refresh();

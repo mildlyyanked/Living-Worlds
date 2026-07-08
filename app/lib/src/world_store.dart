@@ -179,9 +179,7 @@ class WorldStore extends ChangeNotifier {
       openingScenario: generated.openingScenario,
       subjectiveClock: p.worldClock,
       stats: {for (final d in schema.statDefs) d.key: d.defaultValue},
-      quests: [
-        if (generated.startingQuest != null) generated.startingQuest!,
-      ],
+      quests: [if (generated.startingQuest != null) generated.startingQuest!],
     );
     await worldService.createCharacter(character);
     return character;
