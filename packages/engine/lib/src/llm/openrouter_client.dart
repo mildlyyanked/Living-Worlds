@@ -6,6 +6,7 @@
 /// dev mode a direct key is acceptable behind a debug flag — pass [apiKey].
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -20,6 +21,9 @@ class OpenRouterLlmClient implements LlmClient {
     this.apiKey,
     this.model = 'anthropic/claude-sonnet-4.5',
     this.maxToolRounds = 6,
+    this.maxRetries = 2,
+    this.requestTimeout = const Duration(seconds: 90),
+    this.retryBackoff = const Duration(seconds: 1),
     http.Client? httpClient,
   }) : _http = httpClient ?? http.Client();
 
@@ -31,7 +35,40 @@ class OpenRouterLlmClient implements LlmClient {
   /// Pinned tool-calling-reliable model (§14).
   final String model;
   final int maxToolRounds;
+
+  /// Transient network failures (dropped connections, timeouts) are retried
+  /// this many times before giving up — a turn shouldn't die to one blip
+  /// (e.g. the app being backgrounded mid-request). HTTP error statuses are
+  /// NOT retried; they surface immediately.
+  final int maxRetries;
+  final Duration requestTimeout;
+  final Duration retryBackoff;
   final http.Client _http;
+
+  /// POST with a timeout and bounded retry on transient transport errors.
+  /// Only connection-level failures (ClientException, TimeoutException) are
+  /// retried; a completed response — even a non-200 — is returned as-is so
+  /// the caller decides. Retries use linear backoff.
+  Future<http.Response> _post(String path, Object body) async {
+    final url = Uri.parse('$baseUrl$path');
+    final encoded = jsonEncode(body);
+    var attempt = 0;
+    while (true) {
+      try {
+        return await _http
+            .post(url, headers: _headers, body: encoded)
+            .timeout(requestTimeout);
+      } on Object catch (e) {
+        final transient = e is http.ClientException || e is TimeoutException;
+        if (!transient || attempt >= maxRetries) {
+          throw LlmException(
+              'network error after ${attempt + 1} attempt(s): $e');
+        }
+        attempt++;
+        await Future<void>.delayed(retryBackoff * attempt);
+      }
+    }
+  }
 
   static const _toolDefs = [
     {
@@ -102,18 +139,14 @@ class OpenRouterLlmClient implements LlmClient {
 
     for (var round = 0; round <= maxToolRounds; round++) {
       final started = DateTime.now();
-      final resp = await _http.post(
-        Uri.parse('$baseUrl/chat/completions'),
-        headers: _headers,
-        body: jsonEncode({
-          'model': model,
-          'messages': messages,
-          'tools': _toolDefs,
-          // Force strict JSON on the final message.
-          'response_format': {'type': 'json_object'},
-          'usage': {'include': true},
-        }),
-      );
+      final resp = await _post('/chat/completions', {
+        'model': model,
+        'messages': messages,
+        'tools': _toolDefs,
+        // Force strict JSON on the final message.
+        'response_format': {'type': 'json_object'},
+        'usage': {'include': true},
+      });
       latencyMs += DateTime.now().difference(started).inMilliseconds;
       if (resp.statusCode != 200) {
         throw LlmException('OpenRouter ${resp.statusCode}: ${resp.body}');
@@ -173,18 +206,14 @@ class OpenRouterLlmClient implements LlmClient {
     required String prompt,
     bool expectJson = false,
   }) async {
-    final resp = await _http.post(
-      Uri.parse('$baseUrl/chat/completions'),
-      headers: _headers,
-      body: jsonEncode({
-        'model': model,
-        'messages': [
-          {'role': 'system', 'content': systemPrompt},
-          {'role': 'user', 'content': prompt},
-        ],
-        if (expectJson) 'response_format': {'type': 'json_object'},
-      }),
-    );
+    final resp = await _post('/chat/completions', {
+      'model': model,
+      'messages': [
+        {'role': 'system', 'content': systemPrompt},
+        {'role': 'user', 'content': prompt},
+      ],
+      if (expectJson) 'response_format': {'type': 'json_object'},
+    });
     if (resp.statusCode != 200) {
       throw LlmException('OpenRouter ${resp.statusCode}: ${resp.body}');
     }
@@ -249,12 +278,18 @@ class OpenRouterEmbeddingClient implements EmbeddingClient {
     required this.baseUrl,
     this.apiKey,
     this.model = 'openai/text-embedding-3-small',
+    this.maxRetries = 2,
+    this.requestTimeout = const Duration(seconds: 45),
+    this.retryBackoff = const Duration(seconds: 1),
     http.Client? httpClient,
   }) : _http = httpClient ?? http.Client();
 
   final String baseUrl;
   final String? apiKey;
   final String model;
+  final int maxRetries;
+  final Duration requestTimeout;
+  final Duration retryBackoff;
   final http.Client _http;
   int _lastTokens = 0;
 
@@ -263,14 +298,30 @@ class OpenRouterEmbeddingClient implements EmbeddingClient {
 
   @override
   Future<List<double>> embed(String text) async {
-    final resp = await _http.post(
-      Uri.parse('$baseUrl/embeddings'),
-      headers: {
-        'Content-Type': 'application/json',
-        if (apiKey != null) 'Authorization': 'Bearer $apiKey',
-      },
-      body: jsonEncode({'model': model, 'input': text}),
-    );
+    final url = Uri.parse('$baseUrl/embeddings');
+    final headers = {
+      'Content-Type': 'application/json',
+      if (apiKey != null) 'Authorization': 'Bearer $apiKey',
+    };
+    final body = jsonEncode({'model': model, 'input': text});
+    var attempt = 0;
+    late http.Response resp;
+    while (true) {
+      try {
+        resp = await _http
+            .post(url, headers: headers, body: body)
+            .timeout(requestTimeout);
+        break;
+      } on Object catch (e) {
+        final transient = e is http.ClientException || e is TimeoutException;
+        if (!transient || attempt >= maxRetries) {
+          throw LlmException(
+              'embeddings network error after ${attempt + 1} attempt(s): $e');
+        }
+        attempt++;
+        await Future<void>.delayed(retryBackoff * attempt);
+      }
+    }
     if (resp.statusCode != 200) {
       throw LlmException('embeddings ${resp.statusCode}: ${resp.body}');
     }

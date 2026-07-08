@@ -142,8 +142,9 @@ otherwise use null.''';
       ];
       if (parts.isNotEmpty) return parts.join('\n');
     }
-    if (bioField is String && bioField.trim().isNotEmpty)
+    if (bioField is String && bioField.trim().isNotEmpty) {
       return bioField.trim();
+    }
     return seedParagraph.trim();
   }
 
