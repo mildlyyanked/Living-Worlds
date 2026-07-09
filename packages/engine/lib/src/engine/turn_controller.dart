@@ -11,7 +11,9 @@ import 'dart:convert';
 import '../context/assembler.dart';
 import '../cost/cost_log.dart';
 import '../debug/report.dart';
+import '../llm/contract.dart';
 import '../llm/llm_client.dart';
+import '../model/event.dart';
 import '../model/wiki.dart';
 import '../projection/projection.dart';
 import '../repo/world_repository.dart';
@@ -137,6 +139,35 @@ NOT change any state. Return strict JSON:
 You may surface wiki_candidates for notable facts you reveal. Tools available:
 query_wiki, query_relationship, query_inventory.''';
 
+  /// Phase 1 of a two-step turn: resolve ONLY the mechanical consequences of
+  /// the action — no prose. Keeps output tiny and grounds the later narrative
+  /// in real numbers.
+  static const String consequencesSystemPrompt = '''
+You are the deterministic consequence resolver of a living world. The player
+attempts an action. Decide ONLY its concrete consequences and return strict
+JSON — NO narrative, NO prose:
+{"proposed_deltas": {"clock_advance_minutes": int,
+"inventory": [{"op":"grant|remove|use","item":"","qty":1,"reason":""}],
+"stats": [{"key":"","op":"delta|set","value":0,"reason":""}],
+"status": [{"op":"add|remove","key":"","severity":1,"reason":""}],
+"relationships": [{"to":"char_id","dim":"","delta":0,"reason":""}],
+"quest": [{"quest_id":"","op":"progress|complete|fail","step_id":"","reason":""}]},
+"peril": bool, "wiki_candidates": [{"title":"","category":"","body":"","tags":[]}]}
+Be realistic and restrained: most actions take a few minutes and change little.
+Only propose changes the action actually causes; leave arrays empty otherwise.
+You PROPOSE — the engine validates and may clamp or reject. peril is a hint.
+Tools available first: query_wiki, query_relationship, query_inventory.''';
+
+  /// Phase 2 of a two-step turn: given the action and the engine-RESOLVED
+  /// changes, write the account. Deliberately terse.
+  static const String narrativeSystemPrompt = '''
+You are the narrator of a living world. Given the player's action and the
+RESOLVED outcome, write a SHORT, direct, second-person account of what happens
+— at most 1-3 sentences. Ground it strictly in the listed changes; do NOT
+invent new items, injuries, time, or outcomes beyond them. Include dialogue
+only when a character actually speaks, in double quotes. Plain and concrete,
+never florid or padded. If nothing material changed, say so briefly.''';
+
   /// Run one full gameplay turn for [actorId]. When [observe] is true the turn
   /// is a non-consequential observation: no clock advance, no deltas, no death.
   Future<CommittedTurn> playTurn({
@@ -192,46 +223,125 @@ query_wiki, query_relationship, query_inventory.''';
       retrievalDetail: retrievalDetail,
     );
 
-    // 2. LLM with tool loop.
+    final engine = TurnEngine(config: config);
+    final tools = RepositoryToolHandler(repo, projection);
+
+    // 2. Phase 1 — get consequences (deltas only for actions; a descriptive
+    // pass for observations, which have none).
     final started = _clock();
-    final llmResult = await llm.completeTurn(
-      systemPrompt: observe ? observeSystemPrompt : systemPrompt,
+    final phase1 = await llm.completeTurn(
+      systemPrompt: observe ? observeSystemPrompt : consequencesSystemPrompt,
       context: assembled.text,
       userInput: userInput,
-      tools: RepositoryToolHandler(repo, projection),
+      tools: tools,
     );
-    final latencyMs =
-        _clock().difference(started).inMilliseconds + llmResult.usage.latencyMs;
+    var latencyMs =
+        _clock().difference(started).inMilliseconds + phase1.usage.latencyMs;
 
-    final usage = LlmUsage(
-      model: llmResult.usage.model,
-      promptTokens: llmResult.usage.promptTokens,
-      completionTokens: llmResult.usage.completionTokens,
-      embeddingTokens: llmResult.usage.embeddingTokens + embeddingTokens,
-      computedCostUsd: llmResult.usage.computedCostUsd,
+    // 3. Validate + run subsystems (pure, deterministic, seeded). For actions
+    // we strip any narrative the resolver leaked — the narrative is phase 2.
+    final phase1Output = observe
+        ? phase1.output
+        : TurnOutput(
+            narrative: '',
+            proposedDeltas: phase1.output.proposedDeltas,
+            peril: phase1.output.peril,
+            wikiCandidates: phase1.output.wikiCandidates,
+            narratedInProse: phase1.output.narratedInProse,
+          );
+
+    var phase1Usage = LlmUsage(
+      model: phase1.usage.model,
+      promptTokens: phase1.usage.promptTokens,
+      completionTokens: phase1.usage.completionTokens,
+      embeddingTokens: phase1.usage.embeddingTokens + embeddingTokens,
+      computedCostUsd: phase1.usage.computedCostUsd,
       latencyMs: latencyMs,
-      cached: llmResult.usage.cached,
+      cached: phase1.usage.cached,
     );
 
-    // 3. Validate + run subsystems (pure, deterministic, seeded).
-    final engine = TurnEngine(config: config);
     final result = engine.runTurn(
       projection: projection,
       input: TurnInput(
         actorId: actorId,
         userInput: userInput,
-        output: llmResult.output,
+        output: phase1Output,
         observationOnly: observe,
       ),
       now: _clock(),
-      toolExchanges: llmResult.toolExchanges,
+      toolExchanges: phase1.toolExchanges,
       contextSections: assembled.sections,
-      usage: usage,
-      rawLlmJson: llmResult.rawJson ?? jsonEncode(llmResult.output.toJson()),
+      usage: phase1Usage,
+      rawLlmJson: phase1.rawJson ?? jsonEncode(phase1Output.toJson()),
+      contextText: assembled.text,
     );
 
+    // For observations there is no phase 2: the descriptive text came from
+    // phase 1. For actions, phase 2 narrates strictly from the resolved
+    // changes so the story never claims something the engine rejected.
+    var events = result.events;
+    var narrativeOut = phase1.output.narrative;
+    var report = result.report;
+    var totalUsage = phase1Usage;
+
+    if (!observe) {
+      final changes = _changesDigest(result);
+      final narrativePrompt = _narrativePrompt(actor, userInput, changes);
+      final startedNarr = _clock();
+      final narration = await llm.narrate(
+        systemPrompt: narrativeSystemPrompt,
+        context: _liteContext(actor, projection, presentCharacterIds),
+        action: userInput,
+        changes: changes,
+      );
+      latencyMs += _clock().difference(startedNarr).inMilliseconds +
+          narration.usage.latencyMs;
+      narrativeOut = narration.text.isEmpty
+          ? (changes.isEmpty ? 'Nothing changes.' : changes)
+          : narration.text;
+
+      totalUsage = LlmUsage(
+        model: phase1Usage.model,
+        promptTokens: phase1Usage.promptTokens + narration.usage.promptTokens,
+        completionTokens:
+            phase1Usage.completionTokens + narration.usage.completionTokens,
+        embeddingTokens: phase1Usage.embeddingTokens,
+        computedCostUsd:
+            phase1Usage.computedCostUsd + narration.usage.computedCostUsd,
+        latencyMs: latencyMs,
+        cached: phase1Usage.cached && narration.usage.cached,
+      );
+      report = result.report.copyWith(
+        usage: totalUsage,
+        narrativePrompt: narrativePrompt,
+        narrativeText: narrativeOut,
+      );
+
+      // Rebuild the TurnCommitted event (events.first) with the phase-2
+      // narrative and the augmented debug report.
+      final committed = events.first;
+      final payload = Map<String, Object?>.of(committed.payload)
+        ..['narrative'] = narrativeOut;
+      final cause = Map<String, Object?>.of(committed.cause)
+        ..['debug_report'] = report.toJson();
+      events = [
+        Event(
+          id: committed.id,
+          worldId: committed.worldId,
+          seq: committed.seq,
+          timeline: committed.timeline,
+          subjectiveClock: committed.subjectiveClock,
+          type: committed.type,
+          payload: payload,
+          cause: cause,
+          createdAt: committed.createdAt,
+        ),
+        ...events.skip(1),
+      ];
+    }
+
     // 4. Commit events (atomic) -> recompute projection.
-    await repo.appendEvents(result.events);
+    await repo.appendEvents(events);
 
     // Meetings write canon (§4.4): when other characters were present, the
     // turn's outcome becomes a SharedEvent on every participant's timeline,
@@ -244,35 +354,71 @@ query_wiki, query_relationship, query_inventory.''';
     // around.
     if (!observe && others.isNotEmpty) {
       final afterTurn = await repo.projection();
-      final narrative = llmResult.output.narrative;
       await rendezvous.commitSharedEvent(
         projection: afterTurn,
         writerId: actorId,
         participants: [actorId, ...others],
-        summary: narrative.length <= 240
-            ? narrative
-            : '${narrative.substring(0, 237)}...',
+        summary: narrativeOut.length <= 240
+            ? narrativeOut
+            : '${narrativeOut.substring(0, 237)}...',
         detail: 'user input: $userInput',
-        cause: {'turn_id': 'turn-${result.events.first.seq}'},
+        cause: {'turn_id': 'turn-${events.first.seq}'},
       );
     }
     final updated = await repo.projection();
 
     costLog.record(CostLogEntry(
       worldId: projection.world!.id,
-      turnSeq: result.events.first.seq,
-      usage: usage,
+      turnSeq: events.first.seq,
+      usage: totalUsage,
       at: _clock(),
     ));
 
     // 5. Render.
     return CommittedTurn(
-      narrative: llmResult.output.narrative,
+      narrative: narrativeOut,
       notifications: result.notifications,
-      report: result.report,
+      report: report,
       projection: updated,
-      turnSeq: result.events.first.seq,
+      turnSeq: events.first.seq,
       died: result.died,
     );
   }
+
+  /// Compact, human-readable digest of what the engine actually committed —
+  /// fed to the narrator so the prose matches the numbers.
+  String _changesDigest(TurnResult r) {
+    final notes = r.notifications.where((n) => n.trim().isNotEmpty).toList();
+    return notes.join('; ');
+  }
+
+  /// Minimal grounding context for the narrator (kept tiny to hold cost down):
+  /// who the character is, who is present, and their most recent beat.
+  String _liteContext(
+    dynamic actor,
+    WorldProjection projection,
+    List<String> presentIds,
+  ) {
+    final b = StringBuffer()..writeln('CHARACTER: ${actor.name}');
+    final bio = actor.bio as String;
+    if (bio.isNotEmpty) {
+      b.writeln(bio.length <= 200 ? bio : '${bio.substring(0, 200)}…');
+    }
+    final present = [
+      for (final id in presentIds)
+        if (id != actor.id && projection.characters[id] != null)
+          projection.characters[id]!.name
+    ];
+    if (present.isNotEmpty) b.writeln('PRESENT: ${present.join(', ')}');
+    final turns = projection.turnsFor(actor.id as String);
+    if (turns.isNotEmpty) {
+      final last = turns.last.narrative;
+      b.writeln(
+          'PREVIOUSLY: ${last.length <= 200 ? last : '${last.substring(0, 200)}…'}');
+    }
+    return b.toString().trimRight();
+  }
+
+  String _narrativePrompt(dynamic actor, String action, String changes) =>
+      'ACTION: $action\nRESOLVED CHANGES: ${changes.isEmpty ? 'none' : changes}';
 }

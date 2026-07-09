@@ -94,6 +94,7 @@ class TurnEngine {
     List<ContextSectionReport> contextSections = const [],
     LlmUsage usage = const LlmUsage(),
     String? rawLlmJson,
+    String? contextText,
   }) {
     final world = projection.world;
     if (world == null) {
@@ -128,6 +129,7 @@ class TurnEngine {
         contextSections: contextSections,
         usage: usage,
         rawLlmJson: rawLlmJson,
+        contextText: contextText,
       );
     }
 
@@ -733,6 +735,7 @@ class TurnEngine {
       contextSections: contextSections,
       usage: usage,
       notes: notes,
+      contextText: contextText,
     );
 
     // ---- Assemble committed events. TurnCommitted leads and carries the
@@ -822,6 +825,7 @@ class TurnEngine {
     required List<ContextSectionReport> contextSections,
     required LlmUsage usage,
     String? rawLlmJson,
+    String? contextText,
   }) {
     final report = TurnDebugReport(
       rawLlmJson: rawLlmJson,
@@ -830,6 +834,7 @@ class TurnEngine {
       deathEval: null,
       contextSections: contextSections,
       usage: usage,
+      contextText: contextText,
       notes: const [
         'observation: no deltas applied, clock unchanged, no death roll '
             '(§ observe)'

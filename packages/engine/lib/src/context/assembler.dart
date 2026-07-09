@@ -35,7 +35,7 @@ class AssembledContext {
 class ContextAssembler {
   const ContextAssembler({
     this.budgetTokens = 6000,
-    this.recentTurnsVerbatim = 8,
+    this.recentTurnsVerbatim = 5,
     this.config = const EngineConfig(),
   });
 
@@ -105,6 +105,12 @@ class ContextAssembler {
       add('fixed_canon', _canon(fixedCanon), always: true);
     }
 
+    // 4c. Key beats — a cheap deterministic digest of durable milestones
+    // (quest outcomes, deaths) so they survive even when the verbatim window
+    // is small (§6 condensation). No LLM cost.
+    final beats = _keyBeats(actor, projection);
+    if (beats.isNotEmpty) add('key_beats', beats, always: true);
+
     // 5. Recent turns verbatim.
     final turns = projection.turnsFor(actorId);
     final recent = turns.length <= recentTurnsVerbatim
@@ -173,6 +179,26 @@ class ContextAssembler {
         b.writeln('  - ${def?.name ?? i.defId} x${i.qty}'
             '${def != null && def.affordances.isNotEmpty ? ' [enables: ${def.affordances.join(', ')}]' : ''}');
       }
+    }
+    return b.toString().trimRight();
+  }
+
+  String _keyBeats(Character actor, WorldProjection p) {
+    final beats = <String>[];
+    for (final q in actor.quests) {
+      if (q.state == QuestState.complete) {
+        beats.add('completed quest "${q.title}"');
+      } else if (q.state == QuestState.failed) {
+        beats.add('failed quest "${q.title}"');
+      }
+    }
+    for (final c in p.characters.values) {
+      if (!c.alive) beats.add('${c.name} has died');
+    }
+    if (beats.isEmpty) return '';
+    final b = StringBuffer()..writeln('KEY BEATS SO FAR:');
+    for (final beat in beats) {
+      b.writeln('- $beat');
     }
     return b.toString().trimRight();
   }

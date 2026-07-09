@@ -224,6 +224,48 @@ class OpenRouterLlmClient implements LlmClient {
         '';
   }
 
+  @override
+  Future<LlmNarration> narrate({
+    required String systemPrompt,
+    required String context,
+    required String action,
+    required String changes,
+  }) async {
+    final prompt = [
+      if (context.trim().isNotEmpty) context,
+      'ACTION: $action',
+      'RESOLVED CHANGES (narrate strictly around these): '
+          '${changes.trim().isEmpty ? 'none' : changes}',
+      'Write the short account now.',
+    ].join('\n\n');
+    final resp = await _post('/chat/completions', {
+      'model': model,
+      'messages': [
+        {'role': 'system', 'content': systemPrompt},
+        {'role': 'user', 'content': prompt},
+      ],
+      'usage': {'include': true},
+    });
+    if (resp.statusCode != 200) {
+      throw LlmException('OpenRouter ${resp.statusCode}: ${resp.body}');
+    }
+    final json = jsonDecode(resp.body) as Map<String, Object?>;
+    final usage = json['usage'] as Map<String, Object?>? ?? const {};
+    final choice =
+        (json['choices'] as List<Object?>).first! as Map<String, Object?>;
+    final content =
+        (choice['message'] as Map<String, Object?>)['content'] as String? ?? '';
+    return LlmNarration(
+      text: content.trim(),
+      usage: LlmUsage(
+        model: model,
+        promptTokens: (usage['prompt_tokens'] as num? ?? 0).toInt(),
+        completionTokens: (usage['completion_tokens'] as num? ?? 0).toInt(),
+        computedCostUsd: (usage['cost'] as num? ?? 0).toDouble(),
+      ),
+    );
+  }
+
   /// Tolerant parse of a gameplay turn. Models sometimes ignore the
   /// strict-JSON instruction and narrate in prose (which threw
   /// `FormatException: Unexpected character (at character 1)`). We degrade

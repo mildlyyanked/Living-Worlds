@@ -104,9 +104,13 @@ class TurnDebugReport {
     this.contextSections = const [],
     this.usage = const LlmUsage(),
     this.notes = const [],
+    this.contextText,
+    this.narrativePrompt,
+    this.narrativeText,
   });
 
-  /// Raw LLM structured output pre-validation.
+  /// Raw LLM structured output pre-validation. In a two-step turn this is the
+  /// phase-1 "consequences" JSON (deltas only).
   final String? rawLlmJson;
 
   /// Each delta: accepted / clamped(from->to) / rejected(reason).
@@ -117,6 +121,35 @@ class TurnDebugReport {
   final LlmUsage usage;
   final List<String> notes;
 
+  /// The full assembled context string sent to the model (phase 1). Lets the
+  /// debug panel show exactly what the model saw (§ two-step turns debug).
+  final String? contextText;
+
+  /// The phase-2 prompt (action + resolved changes) sent to the narrator.
+  final String? narrativePrompt;
+
+  /// The phase-2 narrative the model returned.
+  final String? narrativeText;
+
+  TurnDebugReport copyWith({
+    LlmUsage? usage,
+    String? contextText,
+    String? narrativePrompt,
+    String? narrativeText,
+  }) =>
+      TurnDebugReport(
+        rawLlmJson: rawLlmJson,
+        decisions: decisions,
+        toolExchanges: toolExchanges,
+        deathEval: deathEval,
+        contextSections: contextSections,
+        usage: usage ?? this.usage,
+        notes: notes,
+        contextText: contextText ?? this.contextText,
+        narrativePrompt: narrativePrompt ?? this.narrativePrompt,
+        narrativeText: narrativeText ?? this.narrativeText,
+      );
+
   Map<String, Object?> toJson() => {
         'raw_llm_json': rawLlmJson,
         'decisions': [for (final d in decisions) d.toJson()],
@@ -125,6 +158,9 @@ class TurnDebugReport {
         'context_sections': [for (final c in contextSections) c.toJson()],
         'usage': usage.toJson(),
         'notes': notes,
+        'context_text': contextText,
+        'narrative_prompt': narrativePrompt,
+        'narrative_text': narrativeText,
       };
 
   factory TurnDebugReport.fromJson(Map<String, Object?> json) =>
@@ -150,5 +186,8 @@ class TurnDebugReport {
           for (final n in json['notes'] as List<Object?>? ?? <Object?>[])
             n! as String
         ],
+        contextText: json['context_text'] as String?,
+        narrativePrompt: json['narrative_prompt'] as String?,
+        narrativeText: json['narrative_text'] as String?,
       );
 }

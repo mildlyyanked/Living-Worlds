@@ -88,6 +88,15 @@ class LlmTurnResult {
   final String? rawJson;
 }
 
+/// Result of the phase-2 "narrate" call in a two-step turn: the concise
+/// narrative text plus usage for cost accounting.
+class LlmNarration {
+  const LlmNarration({required this.text, this.usage = const LlmUsage()});
+
+  final String text;
+  final LlmUsage usage;
+}
+
 /// Answers the model's tool-loop queries against current world state.
 /// The turn controller wires this to the repository/projection.
 abstract class LlmToolHandler {
@@ -113,6 +122,16 @@ abstract class LlmClient {
     required String prompt,
     bool expectJson = false,
   });
+
+  /// Phase 2 of a two-step turn (§ two-step turns): given the player's [action]
+  /// and the engine-RESOLVED mechanical [changes], write a concise, direct
+  /// narrative. No JSON, no proposed state — description grounded in [changes].
+  Future<LlmNarration> narrate({
+    required String systemPrompt,
+    required String context,
+    required String action,
+    required String changes,
+  });
 }
 
 /// Deterministic fixture client for tests and the CLI harness (§11).
@@ -123,12 +142,18 @@ class FixtureLlmClient implements LlmClient {
   FixtureLlmClient({
     List<TurnOutput>? turnOutputs,
     List<String>? completions,
+    List<String>? narrations,
     this.scriptedToolCalls = const [],
   })  : _turnQueue = List.of(turnOutputs ?? const []),
-        _completionQueue = List.of(completions ?? const []);
+        _completionQueue = List.of(completions ?? const []),
+        _narrationQueue = List.of(narrations ?? const []);
 
   final List<TurnOutput> _turnQueue;
   final List<String> _completionQueue;
+
+  /// Optional scripted phase-2 narratives; when empty, [narrate] echoes the
+  /// action + resolved changes deterministically (no queue consumed).
+  final List<String> _narrationQueue;
 
   /// Tool calls the fixture "model" makes before finalizing each turn.
   final List<LlmToolCall> scriptedToolCalls;
@@ -175,5 +200,21 @@ class FixtureLlmClient implements LlmClient {
       throw StateError('FixtureLlmClient: no more canned completions');
     }
     return _completionQueue.removeAt(0);
+  }
+
+  @override
+  Future<LlmNarration> narrate({
+    required String systemPrompt,
+    required String context,
+    required String action,
+    required String changes,
+  }) async {
+    final text = _narrationQueue.isNotEmpty
+        ? _narrationQueue.removeAt(0)
+        : 'You $action.${changes.isEmpty ? '' : ' $changes'}';
+    return LlmNarration(
+      text: text,
+      usage: const LlmUsage(model: 'fixture', cached: true),
+    );
   }
 }

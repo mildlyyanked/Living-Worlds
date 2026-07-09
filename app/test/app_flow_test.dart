@@ -503,11 +503,12 @@ void main() {
   testWidgets('dead character: dialogue stays readable, input stays disabled', (
     tester,
   ) async {
-    // Fixture forces an instant-lethal poison stack.
+    // Fixture forces an instant-lethal poison stack. Phase-1 supplies the
+    // consequences; phase-2 (narrations) supplies the account that is stored.
     final fixture = FixtureLlmClient(
       turnOutputs: [
         const TurnOutput(
-          narrative: 'The vial shatters; poison floods your veins.',
+          narrative: '',
           proposedDeltas: ProposedDeltas(
             status: [
               StatusOp(op: StatusOpKind.add, key: 'poisoned', severity: 10),
@@ -516,6 +517,7 @@ void main() {
           peril: true,
         ),
       ],
+      narrations: ['The vial shatters; poison floods your veins.'],
     );
     await tester.pumpWidget(
       LivingWorldsApp(services: testServices(llmFactory: (_) => fixture)),
@@ -567,5 +569,62 @@ void main() {
     // Original + copy now both present.
     expect(find.textContaining('Harborfall (copy)'), findsOneWidget);
     expect(find.text('Harborfall'), findsOneWidget);
+  });
+
+  testWidgets('undo a gameplay step: reverts the turn and its clock advance', (
+    tester,
+  ) async {
+    await tester.pumpWidget(LivingWorldsApp(services: testServices()));
+    await tester.pumpAndSettle();
+    await createWorldViaUi(tester);
+    await openHarborfall(tester);
+    await openAsh(tester);
+
+    await tester.enterText(find.byKey(const Key('turn-input')), 'walk a while');
+    await tester.tap(find.byKey(const Key('send-turn')));
+    await tester.pumpAndSettle();
+    expect(find.text('Day 1, 00:30'), findsWidgets); // clock advanced
+
+    // Undo the turn: clock returns to zero and the bubble is gone.
+    await tester.tap(find.byKey(const Key('undo-turn')));
+    await tester.pumpAndSettle();
+    expect(find.text('Day 1, 00:00'), findsWidgets);
+    expect(find.text('Day 1, 00:30'), findsNothing);
+    expect(find.textContaining('offline narrator'), findsNothing);
+  });
+
+  testWidgets('debug panel shows the two-step passes (context + narrative)', (
+    tester,
+  ) async {
+    final services = testServices();
+    services.settings.debugPanel = true;
+    await tester.pumpWidget(LivingWorldsApp(services: services));
+    await tester.pumpAndSettle();
+    await createWorldViaUi(tester);
+    await openHarborfall(tester);
+    await openAsh(tester);
+
+    await tester.enterText(find.byKey(const Key('turn-input')), 'look sharp');
+    await tester.tap(find.byKey(const Key('send-turn')));
+    await tester.pumpAndSettle();
+
+    // The debug panel is a short, scrollable sheet; the two-step sections sit
+    // at the bottom, so scroll them into view before asserting.
+    final panelScroll = find.descendant(
+      of: find.byKey(const Key('debug-panel')),
+      matching: find.byType(Scrollable),
+    );
+    for (final key in const [
+      'debug-context',
+      'debug-consequences',
+      'debug-narrative',
+    ]) {
+      await tester.scrollUntilVisible(
+        find.byKey(Key(key)),
+        120,
+        scrollable: panelScroll,
+      );
+      expect(find.byKey(Key(key)), findsOneWidget);
+    }
   });
 }

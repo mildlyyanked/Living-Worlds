@@ -202,6 +202,21 @@ class WorldStore extends ChangeNotifier {
     await _guard(() => repo.revertAfter(seq));
   }
 
+  /// Undo the most recent committed gameplay turn (or observation), reverting
+  /// every state change it made. No-op when there are no live turns.
+  Future<void> undoLastTurn() async {
+    final events = await repo.eventsUpTo(-1);
+    final reverted = await repo.revertedSeqs();
+    Event? last;
+    for (final e in events) {
+      if (e.type == EventType.turnCommitted && !reverted.contains(e.seq)) {
+        last = e;
+      }
+    }
+    if (last == null) return;
+    await undoToSeq(last.seq - 1);
+  }
+
   Future<void> redoToSeq(int seq) async {
     await _guard(() => repo.unrevertUpTo(seq));
   }

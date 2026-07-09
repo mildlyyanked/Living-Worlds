@@ -344,6 +344,21 @@ class OfflineNarratorLlm implements LlmClient {
     }
     return 'Quiet days pass.';
   }
+
+  @override
+  Future<LlmNarration> narrate({
+    required String systemPrompt,
+    required String context,
+    required String action,
+    required String changes,
+  }) async {
+    return LlmNarration(
+      text:
+          'You $action.${changes.isEmpty ? '' : ' $changes'} '
+          '(offline narrator)',
+      usage: const LlmUsage(model: 'offline', cached: true),
+    );
+  }
 }
 
 /// Inherited access to [AppServices].

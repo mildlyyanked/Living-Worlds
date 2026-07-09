@@ -11,10 +11,13 @@ import 'helpers/fixtures.dart';
 void main() {
   Future<(TurnController, InMemoryRepository, FixtureLlmClient)> harness(
       List<TurnOutput> outputs,
-      {List<LlmToolCall> toolCalls = const []}) async {
+      {List<LlmToolCall> toolCalls = const [],
+      List<String> narrations = const []}) async {
     final repo = await seededRepo(InMemoryRepository());
-    final llm =
-        FixtureLlmClient(turnOutputs: outputs, scriptedToolCalls: toolCalls);
+    final llm = FixtureLlmClient(
+        turnOutputs: outputs,
+        scriptedToolCalls: toolCalls,
+        narrations: narrations);
     final controller = TurnController(
       repo: repo,
       llm: llm,
@@ -128,15 +131,21 @@ void main() {
   test(
       'scenario: meeting/cameo — playing with B present writes a '
       'SharedEvent both timelines must honor (§4.4)', () async {
-    final (controller, repo, _) = await harness([
-      const TurnOutput(
-        narrative: 'You find Brynn at the tavern and split the vault haul.',
-        proposedDeltas: ProposedDeltas(
-          clockAdvanceMinutes: 60,
-          relationships: [RelationshipOp(to: 'brynn', dim: 'trust', delta: 2)],
+    final (controller, repo, _) = await harness(
+      [
+        const TurnOutput(
+          narrative: '',
+          proposedDeltas: ProposedDeltas(
+            clockAdvanceMinutes: 60,
+            relationships: [
+              RelationshipOp(to: 'brynn', dim: 'trust', delta: 2)
+            ],
+          ),
         ),
-      ),
-    ]);
+      ],
+      // Phase-2 narrative (two-step turn) becomes the SharedEvent summary.
+      narrations: ['You find Brynn at the tavern and split the vault haul.'],
+    );
     final turn = await controller.playTurn(
       actorId: 'ash',
       userInput: 'meet brynn at the tavern',
@@ -163,18 +172,21 @@ void main() {
 
   test('scenario: death — lethal stack, timeline frozen, event trail intact',
       () async {
-    final (controller, repo, _) = await harness([
-      const TurnOutput(
-        narrative: 'The serpent strikes twice. The world goes quiet.',
-        proposedDeltas: ProposedDeltas(
-          clockAdvanceMinutes: 3,
-          status: [
-            StatusOp(op: StatusOpKind.add, key: 'poisoned', severity: 15)
-          ],
+    final (controller, repo, _) = await harness(
+      [
+        const TurnOutput(
+          narrative: '',
+          proposedDeltas: ProposedDeltas(
+            clockAdvanceMinutes: 3,
+            status: [
+              StatusOp(op: StatusOpKind.add, key: 'poisoned', severity: 15)
+            ],
+          ),
+          peril: true,
         ),
-        peril: true,
-      ),
-    ]);
+      ],
+      narrations: ['The serpent strikes twice. The world goes quiet.'],
+    );
     final turn = await controller.playTurn(
         actorId: 'ash', userInput: 'grab the serpent');
     expect(turn.died, isTrue);
@@ -239,6 +251,15 @@ class _ExplodingLlm implements LlmClient {
       {required String systemPrompt,
       required String prompt,
       bool expectJson = false}) async {
+    throw StateError('LLM unavailable');
+  }
+
+  @override
+  Future<LlmNarration> narrate(
+      {required String systemPrompt,
+      required String context,
+      required String action,
+      required String changes}) async {
     throw StateError('LLM unavailable');
   }
 }

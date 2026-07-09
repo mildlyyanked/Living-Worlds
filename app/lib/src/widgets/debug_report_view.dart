@@ -111,12 +111,34 @@ class DebugReportView extends StatelessWidget {
         ),
         if (report.notes.isNotEmpty)
           Text('notes: ${report.notes.join("; ")}', style: mono),
-        if (report.rawLlmJson != null) ...[
+        if (report.contextText != null && report.contextText!.isNotEmpty) ...[
           const SizedBox(height: 6),
           ExpansionTile(
-            title: const Text('raw LLM output (pre-validation)'),
+            key: const Key('debug-context'),
+            title: const Text('context sent (phase 1)'),
+            tilePadding: EdgeInsets.zero,
+            children: [Text(report.contextText!, style: mono)],
+          ),
+        ],
+        if (report.rawLlmJson != null) ...[
+          ExpansionTile(
+            key: const Key('debug-consequences'),
+            title: const Text('consequences JSON (phase 1, pre-validation)'),
             tilePadding: EdgeInsets.zero,
             children: [Text(report.rawLlmJson!, style: mono)],
+          ),
+        ],
+        if (report.narrativeText != null &&
+            report.narrativeText!.isNotEmpty) ...[
+          ExpansionTile(
+            key: const Key('debug-narrative'),
+            title: const Text('narrative (phase 2)'),
+            tilePadding: EdgeInsets.zero,
+            children: [
+              if (report.narrativePrompt != null)
+                Text('prompt: ${report.narrativePrompt}', style: mono),
+              Text(report.narrativeText!, style: mono),
+            ],
           ),
         ],
       ],

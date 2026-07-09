@@ -134,6 +134,14 @@ class _GameplayScreenState extends State<GameplayScreen> {
                 ),
               ),
               IconButton(
+                key: const Key('undo-turn'),
+                icon: const Icon(Icons.undo),
+                tooltip: 'Undo last turn',
+                onPressed: _session.isEmpty || store.busy
+                    ? null
+                    : _undoLastTurn,
+              ),
+              IconButton(
                 key: const Key('overlay-inventory'),
                 icon: const Icon(Icons.inventory_2),
                 color: _overlay == _Overlay.inventory
@@ -208,16 +216,17 @@ class _GameplayScreenState extends State<GameplayScreen> {
     );
   }
 
-  Future<void> _undoDeath() async {
-    // Undo to just before the last committed turn (the fatal one).
-    final events = await store.repo.eventsUpTo(-1);
-    final lastTurn = events.lastWhere(
-      (e) => e.type == EventType.turnCommitted,
-      orElse: () => events.last,
-    );
-    await store.undoToSeq(lastTurn.seq - 1);
+  Future<void> _undoDeath() => _undoLastTurn();
+
+  /// Revert the most recent committed turn's state changes and drop it from
+  /// the on-screen transcript (rebuilt from the log, the source of truth).
+  Future<void> _undoLastTurn() async {
+    await store.undoLastTurn();
+    if (!mounted) return;
     setState(() {
-      if (_session.isNotEmpty) _session.removeLast();
+      _session
+        ..clear()
+        ..addAll(store.chatFor(widget.characterId));
     });
   }
 }
