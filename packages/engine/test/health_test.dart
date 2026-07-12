@@ -35,9 +35,9 @@ void main() {
     });
 
     test('hunger/fatigue stats subtract value * weight', () {
-      // hunger 40 * 0.25 + fatigue 20 * 0.25 = 15
+      // hunger 40 * 0.35 + fatigue 20 * 0.3 = 14 + 6 = 20
       final c = char(stats: {'vitality': 100, 'hunger': 40, 'fatigue': 20});
-      expect(healthOf(c, schema, config), 85);
+      expect(healthOf(c, schema, config), 80);
     });
 
     test('buffs (negative weight) add health', () {

@@ -433,6 +433,19 @@ class TurnEngine {
       }
       final from = stats[op.key] ?? def.defaultValue;
       final target = op.op == StatOpKind.delta ? from + op.value : op.value;
+      // Resource guard (§ hardened stats): you cannot spend what you don't
+      // have. A delta that would drop a resource below its floor is rejected
+      // whole, not silently clamped.
+      if (def.resource && op.op == StatOpKind.delta && target < def.min) {
+        decisions.add(DeltaDecision(
+          section: 'stats',
+          proposal: op.toJson(),
+          outcome: DeltaOutcome.rejected,
+          reason: 'insufficient ${def.displayLabel}: have ${_trim(from)}, '
+              'tried to spend ${_trim(op.value.abs())}',
+        ));
+        continue;
+      }
       final clamped = target.clamp(def.min, def.max);
       stats[op.key] = clamped;
       decisions.add(DeltaDecision(

@@ -11,7 +11,7 @@ import '../widgets/debug_report_view.dart';
 import '../world_store.dart';
 import 'world_screen.dart';
 
-enum _Overlay { none, inventory, quests, relationships }
+enum _Overlay { none, character, inventory, quests, relationships }
 
 class GameplayScreen extends StatefulWidget {
   const GameplayScreen({
@@ -113,6 +113,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
           onUndoDeath: _undoDeath,
           observing: _observing,
           onToggleObserve: (v) => setState(() => _observing = v),
+          // Debug panel now lives inside the column, above the input, so it
+          // never covers the text field.
+          debugPanel: settings.debugPanel && _session.isNotEmpty
+              ? DebugPanel(item: _session.last)
+              : null,
         );
         final info = _InfoPanel(
           projection: p,
@@ -140,6 +145,19 @@ class _GameplayScreenState extends State<GameplayScreen> {
                 onPressed: _session.isEmpty || store.busy
                     ? null
                     : _undoLastTurn,
+              ),
+              IconButton(
+                key: const Key('overlay-character'),
+                icon: const Icon(Icons.person),
+                tooltip: 'Character',
+                color: _overlay == _Overlay.character
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+                onPressed: () => setState(
+                  () => _overlay = _overlay == _Overlay.character
+                      ? _Overlay.none
+                      : _Overlay.character,
+                ),
               ),
               IconButton(
                 key: const Key('overlay-inventory'),
@@ -208,9 +226,6 @@ class _GameplayScreenState extends State<GameplayScreen> {
                 ),
             ],
           ),
-          bottomSheet: settings.debugPanel && _session.isNotEmpty
-              ? DebugPanel(item: _session.last)
-              : null,
         );
       },
     );
@@ -242,6 +257,7 @@ class _ChatColumn extends StatelessWidget {
     required this.onUndoDeath,
     required this.observing,
     required this.onToggleObserve,
+    this.debugPanel,
   });
 
   final List<ChatItem> session;
@@ -253,6 +269,9 @@ class _ChatColumn extends StatelessWidget {
   final VoidCallback onUndoDeath;
   final bool observing;
   final ValueChanged<bool> onToggleObserve;
+
+  /// Optional debug panel rendered above the input (never over it).
+  final Widget? debugPanel;
 
   @override
   Widget build(BuildContext context) {
@@ -350,6 +369,7 @@ class _ChatColumn extends StatelessWidget {
             ),
           ),
         ),
+        ?debugPanel,
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
@@ -593,6 +613,89 @@ class _OverlayPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (overlay) {
+      case _Overlay.character:
+        final schema = projection.world!.schema;
+        const config = EngineConfig();
+        final health = healthOf(character, schema, config);
+        return ListView(
+          key: const Key('character-info'),
+          padding: const EdgeInsets.all(12),
+          children: [
+            Text(character.name, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Bio (always in context)',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            Text(
+              character.bio.isEmpty ? '—' : character.bio,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const Divider(),
+            Row(
+              children: [
+                const Flexible(child: Text('Health (composite)')),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: health / 100,
+                    minHeight: 8,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${health.round()}/100',
+                  key: const Key('info-health-value'),
+                ),
+              ],
+            ),
+            Text(
+              'Derived from needs + injuries; not edited directly.',
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+            const SizedBox(height: 8),
+            Text('Stats', style: Theme.of(context).textTheme.titleSmall),
+            for (final d in schema.statDefs)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        d.displayLabel +
+                            (d.resource
+                                ? ' (resource)'
+                                : d.affectsHealth
+                                ? ' (need)'
+                                : ''),
+                      ),
+                    ),
+                    Text(
+                      (character.stats[d.key] ?? d.defaultValue)
+                          .toStringAsFixed(0),
+                    ),
+                  ],
+                ),
+              ),
+            const Divider(),
+            Text('Status', style: Theme.of(context).textTheme.titleSmall),
+            if (character.status.isEmpty) const Text('None.'),
+            for (final s in character.status)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(schema.statusDef(s.key)?.label ?? s.key),
+                trailing: Text(
+                  effectiveSeverity(
+                    s,
+                    schema.statusDef(s.key),
+                    character.subjectiveClock,
+                  ).toStringAsFixed(1),
+                ),
+              ),
+          ],
+        );
       case _Overlay.inventory:
         return ListView(
           padding: const EdgeInsets.all(12),

@@ -155,7 +155,13 @@ JSON — NO narrative, NO prose:
 "peril": bool, "wiki_candidates": [{"title":"","category":"","body":"","tags":[]}]}
 Be realistic and restrained: most actions take a few minutes and change little.
 Only propose changes the action actually causes; leave arrays empty otherwise.
-You PROPOSE — the engine validates and may clamp or reject. peril is a hint.
+RULES: (1) Never invent stats, statuses or items — use only what the context
+lists. (2) Never spend coin the character does not have, and only use/consume
+items in their inventory; if the action needs something they lack (a key, a
+tool, coin), propose NO deltas — the narration will describe the failure.
+(3) Do NOT set health directly: it is derived from hunger, thirst, fatigue and
+injuries. Move those, not "health". You PROPOSE — the engine validates and may
+clamp or reject. peril is a hint.
 Tools available first: query_wiki, query_relationship, query_inventory.''';
 
   /// Phase 2 of a two-step turn: given the action and the engine-RESOLVED

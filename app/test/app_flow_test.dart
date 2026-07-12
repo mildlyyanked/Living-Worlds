@@ -101,6 +101,26 @@ void main() {
     expect(find.textContaining('character_sheet'), findsOneWidget);
   });
 
+  testWidgets('character info tab shows bio, composite health, stats, status', (
+    tester,
+  ) async {
+    await tester.pumpWidget(LivingWorldsApp(services: testServices()));
+    await tester.pumpAndSettle();
+    await createWorldViaUi(tester);
+    await openHarborfall(tester);
+    await openAsh(tester);
+
+    await tester.tap(find.byKey(const Key('overlay-character')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('character-info')), findsOneWidget);
+    expect(find.textContaining('Health (composite)'), findsOneWidget);
+    expect(find.byKey(const Key('info-health-value')), findsOneWidget);
+    // Vital-need stats are listed; there is no editable health/vitality stat.
+    expect(find.textContaining('Hunger'), findsWidgets);
+    expect(find.textContaining('Thirst'), findsWidgets);
+    expect(find.textContaining('Coin (resource)'), findsOneWidget);
+  });
+
   testWidgets('gameplay overlays: inventory, quests, relationships toggle', (
     tester,
   ) async {

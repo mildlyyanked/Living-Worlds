@@ -276,14 +276,41 @@ class AppServices {
     return Event.fromJson(json);
   }
 
+  /// A small generic starter kit, aligned to the default vital-needs stats.
+  /// Worlds can add/remove item definitions freely via seeding/authoring.
   static List<ItemDef> _starterItems(String worldId) => [
     ItemDef(
-      id: 'item-rusty-key',
+      id: 'item-rations',
       worldId: worldId,
-      name: 'rusty key',
-      desc: 'Opens something old.',
-      affordances: const ['unlock'],
-      stackable: false,
+      name: 'trail rations',
+      desc: 'Dense, dull food. Blunts hunger.',
+      affordances: const ['eat'],
+      effects: const [
+        ItemEffect(onUse: 'eat', statKey: 'hunger', statDelta: -40),
+      ],
+      consumable: true,
+    ),
+    ItemDef(
+      id: 'item-waterskin',
+      worldId: worldId,
+      name: 'waterskin',
+      desc: 'A skin of clean water. Slakes thirst.',
+      affordances: const ['drink'],
+      effects: const [
+        ItemEffect(onUse: 'drink', statKey: 'thirst', statDelta: -50),
+      ],
+      consumable: true,
+    ),
+    ItemDef(
+      id: 'item-bandage',
+      worldId: worldId,
+      name: 'bandage',
+      desc: 'Binds a wound to stop bleeding.',
+      affordances: const ['bind'],
+      effects: const [
+        ItemEffect(onUse: 'bind', statusKey: 'bleeding', statusOp: 'remove'),
+      ],
+      consumable: true,
     ),
     ItemDef(
       id: 'item-potion',
@@ -298,11 +325,27 @@ class AppServices {
       consumable: true,
     ),
     ItemDef(
+      id: 'item-knife',
+      worldId: worldId,
+      name: 'belt knife',
+      desc: 'A short, practical blade.',
+      affordances: const ['cut', 'defend'],
+      stackable: false,
+    ),
+    ItemDef(
       id: 'item-lantern',
       worldId: worldId,
       name: 'storm lantern',
       desc: 'Light in dark places.',
       affordances: const ['light'],
+    ),
+    ItemDef(
+      id: 'item-rusty-key',
+      worldId: worldId,
+      name: 'rusty key',
+      desc: 'Opens something old.',
+      affordances: const ['unlock'],
+      stackable: false,
     ),
   ];
 }

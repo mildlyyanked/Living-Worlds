@@ -10,6 +10,8 @@ class StatDef {
     required this.defaultValue,
     this.affectsHealth = false,
     this.weight = 0.0,
+    this.resource = false,
+    this.label,
   });
 
   final String key;
@@ -22,6 +24,16 @@ class StatDef {
   final bool affectsHealth;
   final double weight;
 
+  /// When true this stat is a spendable resource (e.g. coin): a proposed
+  /// `delta` that would take it below [min] is REJECTED (you can't spend what
+  /// you don't have) rather than silently clamped.
+  final bool resource;
+
+  /// Optional human label for UI; falls back to [key].
+  final String? label;
+
+  String get displayLabel => label ?? key;
+
   Map<String, Object?> toJson() => {
         'key': key,
         'min': min,
@@ -29,6 +41,8 @@ class StatDef {
         'default': defaultValue,
         'affects_health': affectsHealth,
         'weight': weight,
+        'resource': resource,
+        'label': label,
       };
 
   factory StatDef.fromJson(Map<String, Object?> json) => StatDef(
@@ -38,6 +52,8 @@ class StatDef {
         defaultValue: (json['default'] as num).toDouble(),
         affectsHealth: json['affects_health'] as bool? ?? false,
         weight: (json['weight'] as num? ?? 0).toDouble(),
+        resource: json['resource'] as bool? ?? false,
+        label: json['label'] as String?,
       );
 }
 
@@ -152,25 +168,46 @@ class WorldSchema {
             (json['relationship_dim_max'] as num? ?? 10).toDouble(),
       );
 
-  /// A reasonable default fantasy-ish schema used by new worlds and tests.
+  /// A reasonable default, generic schema used by new worlds. Health is fully
+  /// composite: there is no directly-editable "health"/"vitality" stat — it is
+  /// derived from the vital needs (hunger/thirst/fatigue) and statuses. `coin`
+  /// is a spendable resource (overspend is rejected, not clamped). Worlds may
+  /// add/modify stats, statuses and dimensions freely.
   factory WorldSchema.standard() => const WorldSchema(
         statDefs: [
-          StatDef(key: 'vitality', min: 0, max: 100, defaultValue: 100),
+          // Vital needs — rise toward 100 (worse) and subtract from health.
           StatDef(
               key: 'hunger',
+              label: 'Hunger',
               min: 0,
               max: 100,
               defaultValue: 0,
               affectsHealth: true,
-              weight: 0.25),
+              weight: 0.35),
+          StatDef(
+              key: 'thirst',
+              label: 'Thirst',
+              min: 0,
+              max: 100,
+              defaultValue: 0,
+              affectsHealth: true,
+              weight: 0.5),
           StatDef(
               key: 'fatigue',
+              label: 'Fatigue',
               min: 0,
               max: 100,
               defaultValue: 0,
               affectsHealth: true,
-              weight: 0.25),
-          StatDef(key: 'coin', min: 0, max: 999999, defaultValue: 10),
+              weight: 0.3),
+          // Spendable resource — cannot go below 0; overspend is rejected.
+          StatDef(
+              key: 'coin',
+              label: 'Coin',
+              min: 0,
+              max: 999999,
+              defaultValue: 20,
+              resource: true),
         ],
         statusDefs: [
           StatusDef(
@@ -182,6 +219,7 @@ class WorldSchema {
               decayPerMin: 0.01,
               weight: 6,
               lethalSeverity: 10),
+          StatusDef(key: 'sick', label: 'Sick', decayPerMin: 0.005, weight: 5),
           StatusDef(
               key: 'rested',
               label: 'Well Rested',
