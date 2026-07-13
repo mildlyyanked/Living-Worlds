@@ -189,6 +189,30 @@ class WorldStore extends ChangeNotifier {
     await _guard(() => worldService.designateWorldBio(ref.id, entryId));
   }
 
+  /// Generate an illustration for a wiki entry from its description, save the
+  /// bytes to the on-device image store, and attach the id to the entry (§
+  /// images). Serverless — the configured image client calls the provider
+  /// directly.
+  Future<void> generateWikiImage(WikiEntry entry) async {
+    await _guard(() async {
+      final img = await services.buildImageClient().generate(
+        _imagePrompt(entry),
+      );
+      final imageId =
+          'img-${entry.id}-${DateTime.now().millisecondsSinceEpoch}';
+      await services.imageStore.save(ref.id, imageId, img.bytes);
+      await worldService.updateWikiEntry(entry.copyWith(imageId: imageId));
+    });
+  }
+
+  Future<Uint8List?> loadWikiImage(String imageId) =>
+      services.imageStore.load(ref.id, imageId);
+
+  String _imagePrompt(WikiEntry e) {
+    final base = '${e.title}. ${e.body}'.trim();
+    return base.length <= 400 ? base : base.substring(0, 400);
+  }
+
   Future<TimeSkipResult?> timeSkip({
     required String characterId,
     required TimeSkipTarget target,

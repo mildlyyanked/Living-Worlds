@@ -13,6 +13,7 @@ class WikiEntry {
     this.embedding,
     this.version = 1,
     this.updatedAt,
+    this.imageId,
   });
 
   final String id;
@@ -21,6 +22,10 @@ class WikiEntry {
   final String category;
   final String body;
   final List<String> tags;
+
+  /// Id of a generated illustration stored in the on-device image blob store,
+  /// if any. Null until the user generates one (§ images).
+  final String? imageId;
 
   /// If set, this entry is a timeline event at this world-clock minute.
   final int? clockRef;
@@ -49,6 +54,7 @@ class WikiEntry {
     List<double>? embedding,
     int? version,
     DateTime? updatedAt,
+    String? imageId,
   }) =>
       WikiEntry(
         id: id,
@@ -61,6 +67,7 @@ class WikiEntry {
         embedding: embedding ?? this.embedding,
         version: version ?? this.version,
         updatedAt: updatedAt ?? this.updatedAt,
+        imageId: imageId ?? this.imageId,
       );
 
   Map<String, Object?> toJson() => {
@@ -74,6 +81,7 @@ class WikiEntry {
         'embedding': embedding,
         'version': version,
         'updated_at': updatedAt?.toIso8601String(),
+        'image_id': imageId,
       };
 
   factory WikiEntry.fromJson(Map<String, Object?> json) => WikiEntry(
@@ -97,6 +105,7 @@ class WikiEntry {
         updatedAt: json['updated_at'] == null
             ? null
             : DateTime.parse(json['updated_at'] as String),
+        imageId: json['image_id'] as String?,
       );
 }
 

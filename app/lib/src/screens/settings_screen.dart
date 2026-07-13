@@ -118,9 +118,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     settings.update((s) => s.contextBudgetTokens = v.round()),
               ),
             ),
+            const Divider(height: 32),
+            Text(
+              'Image generation (Perchance)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const Text(
+              'Serverless & keyless. Do the Perchance verification once in a '
+              'browser, paste the userKey below, and the app calls it directly. '
+              'Every endpoint field is editable so you can self-serve fixes '
+              'when Perchance changes.',
+            ),
+            SwitchListTile(
+              key: const Key('image-gen-toggle'),
+              title: const Text('Enable image generation'),
+              value: settings.imageGenEnabled,
+              onChanged: (v) => settings.update((s) => s.imageGenEnabled = v),
+            ),
+            if (settings.imageGenEnabled) ...[
+              _cfg(
+                context,
+                settings,
+                key: 'image-user-key',
+                label: 'Perchance userKey (paste from browser)',
+                obscure: true,
+                value: settings.imageConfig.userKey,
+                apply: (s, v) =>
+                    s.imageConfig = s.imageConfig.copyWith(userKey: v),
+              ),
+              _cfg(
+                context,
+                settings,
+                label: 'Base URL',
+                value: settings.imageConfig.baseUrl,
+                apply: (s, v) =>
+                    s.imageConfig = s.imageConfig.copyWith(baseUrl: v),
+              ),
+              _cfg(
+                context,
+                settings,
+                label: 'Generate path',
+                value: settings.imageConfig.generatePath,
+                apply: (s, v) =>
+                    s.imageConfig = s.imageConfig.copyWith(generatePath: v),
+              ),
+              _cfg(
+                context,
+                settings,
+                label: 'Download path',
+                value: settings.imageConfig.downloadPath,
+                apply: (s, v) =>
+                    s.imageConfig = s.imageConfig.copyWith(downloadPath: v),
+              ),
+              _cfg(
+                context,
+                settings,
+                label: 'Generate query template',
+                value: settings.imageConfig.queryTemplate,
+                apply: (s, v) =>
+                    s.imageConfig = s.imageConfig.copyWith(queryTemplate: v),
+              ),
+              _cfg(
+                context,
+                settings,
+                label: 'Response image-id field',
+                value: settings.imageConfig.imageIdField,
+                apply: (s, v) =>
+                    s.imageConfig = s.imageConfig.copyWith(imageIdField: v),
+              ),
+              _cfg(
+                context,
+                settings,
+                label: 'Resolution',
+                value: settings.imageConfig.resolution,
+                apply: (s, v) =>
+                    s.imageConfig = s.imageConfig.copyWith(resolution: v),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  Widget _cfg(
+    BuildContext context,
+    AppSettings settings, {
+    required String label,
+    required String value,
+    required void Function(AppSettings s, String v) apply,
+    String? key,
+    bool obscure = false,
+  }) => TextFormField(
+    key: key == null ? null : Key(key),
+    initialValue: value,
+    obscureText: obscure,
+    decoration: InputDecoration(labelText: label),
+    onChanged: (v) => settings.update((s) => apply(s, v)),
+  );
 }

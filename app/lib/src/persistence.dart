@@ -5,7 +5,10 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class KeyValueStore {
@@ -46,6 +49,52 @@ class InMemoryKeyValueStore implements KeyValueStore {
 
   @override
   Future<void> remove(String key) async => _m.remove(key);
+}
+
+/// On-device store for generated image bytes (§ images). Serverless: images
+/// live as files on the device, keyed by world + image id, and are referenced
+/// from wiki entries by id (keeping the event log lean). Injectable so widget
+/// tests use an in-memory variant and never touch the filesystem.
+abstract class ImageStore {
+  Future<void> save(String worldId, String imageId, Uint8List bytes);
+  Future<Uint8List?> load(String worldId, String imageId);
+}
+
+/// Production store: files under `<docs>/living_worlds/images/<world>/<id>`.
+class FileImageStore implements ImageStore {
+  Future<Directory> _dir(String worldId) async {
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = Directory('${docs.path}/living_worlds/images/$worldId');
+    await dir.create(recursive: true);
+    return dir;
+  }
+
+  String _safe(String id) => id.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
+
+  @override
+  Future<void> save(String worldId, String imageId, Uint8List bytes) async {
+    final f = File('${(await _dir(worldId)).path}/${_safe(imageId)}');
+    await f.writeAsBytes(bytes, flush: true);
+  }
+
+  @override
+  Future<Uint8List?> load(String worldId, String imageId) async {
+    final f = File('${(await _dir(worldId)).path}/${_safe(imageId)}');
+    return f.existsSync() ? f.readAsBytes() : null;
+  }
+}
+
+/// Hermetic store for tests.
+class InMemoryImageStore implements ImageStore {
+  final Map<String, Uint8List> _m = {};
+
+  @override
+  Future<void> save(String worldId, String imageId, Uint8List bytes) async =>
+      _m['$worldId/$imageId'] = bytes;
+
+  @override
+  Future<Uint8List?> load(String worldId, String imageId) async =>
+      _m['$worldId/$imageId'];
 }
 
 /// One line in a seeding-workshop conversation.

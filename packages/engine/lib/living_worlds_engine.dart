@@ -18,6 +18,7 @@ export 'src/engine/turn_controller.dart';
 export 'src/engine/turn_engine.dart';
 export 'src/engine/validation.dart';
 export 'src/engine/world_service.dart';
+export 'src/image/image_client.dart';
 export 'src/llm/contract.dart';
 export 'src/llm/llm_client.dart';
 export 'src/llm/openrouter_client.dart';

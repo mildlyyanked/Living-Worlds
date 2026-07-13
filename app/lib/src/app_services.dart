@@ -40,6 +40,11 @@ class AppSettings extends ChangeNotifier {
   bool debugPanel = false;
   int contextBudgetTokens = 6000;
 
+  /// Image generation (§ images). Off by default; when on, the Perchance
+  /// contract below is fully editable so maintenance is self-serve.
+  bool imageGenEnabled = false;
+  PerchanceImageConfig imageConfig = const PerchanceImageConfig();
+
   /// Read persisted values (call once at startup).
   Future<void> load() async {
     final raw = await _kv.get(_storeKey);
@@ -56,6 +61,12 @@ class AppSettings extends ChangeNotifier {
     debugPanel = j['debugPanel'] as bool? ?? debugPanel;
     contextBudgetTokens =
         (j['contextBudgetTokens'] as num?)?.round() ?? contextBudgetTokens;
+    imageGenEnabled = j['imageGenEnabled'] as bool? ?? imageGenEnabled;
+    if (j['imageConfig'] is Map<String, Object?>) {
+      imageConfig = PerchanceImageConfig.fromJson(
+        j['imageConfig']! as Map<String, Object?>,
+      );
+    }
     notifyListeners();
   }
 
@@ -76,6 +87,8 @@ class AppSettings extends ChangeNotifier {
       'model': model,
       'debugPanel': debugPanel,
       'contextBudgetTokens': contextBudgetTokens,
+      'imageGenEnabled': imageGenEnabled,
+      'imageConfig': imageConfig.toJson(),
     }),
   );
 }
@@ -96,13 +109,17 @@ class AppServices {
     WorldRepository Function(String path)? repoFactory,
     LlmClient Function(AppSettings settings)? llmFactory,
     EmbeddingClient Function(AppSettings settings)? embedderFactory,
+    ImageClient Function(AppSettings settings)? imageClientFactory,
+    ImageStore? imageStore,
     Future<Directory> Function()? worldsDirProvider,
     KeyValueStore? keyValueStore,
     this.scanDiskWorlds = true,
   }) : kv = keyValueStore ?? SharedPrefsKeyValueStore(),
+       imageStore = imageStore ?? FileImageStore(),
        _repoFactory = repoFactory ?? _defaultRepoFactory,
        _llmFactory = llmFactory ?? _defaultLlmFactory,
        _embedderFactory = embedderFactory ?? ((_) => FixtureEmbeddingClient()),
+       _imageClientFactory = imageClientFactory ?? _defaultImageClientFactory,
        _worldsDir = worldsDirProvider ?? _defaultWorldsDir;
 
   /// Widget tests run in a fake-async zone where real disk IO never
@@ -110,11 +127,13 @@ class AppServices {
   final bool scanDiskWorlds;
 
   final KeyValueStore kv;
+  final ImageStore imageStore;
   late final AppSettings settings = AppSettings(kv);
   late final SeedingThreadStore seedingThreads = SeedingThreadStore(kv);
   final WorldRepository Function(String path) _repoFactory;
   final LlmClient Function(AppSettings settings) _llmFactory;
   final EmbeddingClient Function(AppSettings settings) _embedderFactory;
+  final ImageClient Function(AppSettings settings) _imageClientFactory;
   final Future<Directory> Function() _worldsDir;
 
   final Map<String, WorldRepository> _open = {};
@@ -148,6 +167,14 @@ class AppServices {
 
   LlmClient buildLlm() => _llmFactory(settings);
   EmbeddingClient buildEmbedder() => _embedderFactory(settings);
+  ImageClient buildImageClient() => _imageClientFactory(settings);
+
+  /// Perchance when enabled with a userKey; otherwise a no-network fixture so
+  /// the button degrades gracefully instead of erroring.
+  static ImageClient _defaultImageClientFactory(AppSettings s) =>
+      s.imageGenEnabled && s.imageConfig.userKey.trim().isNotEmpty
+      ? PerchanceImageClient(config: s.imageConfig)
+      : FixtureImageClient();
 
   Future<WorldRepository> openRepo(WorldRef ref) async =>
       _open[ref.id] ??= _repoFactory(ref.path);

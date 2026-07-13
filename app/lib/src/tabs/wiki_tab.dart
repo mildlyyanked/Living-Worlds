@@ -3,6 +3,8 @@
 /// (Workshop view).
 library;
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:living_worlds_engine/living_worlds_engine.dart';
 
@@ -222,33 +224,87 @@ class _WikiTabState extends State<WikiTab> {
     if (mounted) setState(() {}); // reflect new messages/title on return
   }
 
-  void _view(WikiEntry w) {
+  void _view(WikiEntry entry) {
+    var generating = false;
+    String? error;
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(w.title),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${w.category} · v${w.version}'
-                '${w.clockRef != null ? ' · timeline @${w.clockRef}min' : ''}'
-                '${w.tags.isNotEmpty ? '\ntags: ${w.tags.join(', ')}' : ''}',
-                style: Theme.of(context).textTheme.bodySmall,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setLocal) {
+          // Re-read from the store so a freshly generated image shows.
+          final w = store.projection?.wiki[entry.id] ?? entry;
+          return AlertDialog(
+            title: Text(w.title),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${w.category} · v${w.version}'
+                    '${w.clockRef != null ? ' · timeline @${w.clockRef}min' : ''}'
+                    '${w.tags.isNotEmpty ? '\ntags: ${w.tags.join(', ')}' : ''}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (w.imageId != null) ...[
+                    const SizedBox(height: 8),
+                    FutureBuilder<Uint8List?>(
+                      future: store.loadWikiImage(w.imageId!),
+                      builder: (c, snap) => snap.data == null
+                          ? const SizedBox.shrink()
+                          : ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.memory(
+                                snap.data!,
+                                key: const Key('wiki-image'),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(w.body),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(w.body),
+            ),
+            actions: [
+              TextButton(
+                key: const Key('generate-image'),
+                onPressed: generating
+                    ? null
+                    : () async {
+                        setLocal(() {
+                          generating = true;
+                          error = null;
+                        });
+                        await store.generateWikiImage(w);
+                        setLocal(() {
+                          generating = false;
+                          error = store.lastError;
+                        });
+                      },
+                child: Text(
+                  generating
+                      ? 'Generating…'
+                      : (w.imageId == null ? 'Generate image' : 'Regenerate'),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

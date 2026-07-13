@@ -13,11 +13,15 @@ import 'package:living_worlds_engine/living_worlds_engine.dart';
 
 AppServices testServices({
   LlmClient Function(AppSettings)? llmFactory,
+  ImageClient Function(AppSettings)? imageClientFactory,
+  ImageStore? imageStore,
   KeyValueStore? kv,
 }) {
   return AppServices(
     repoFactory: (_) => InMemoryRepository(),
     llmFactory: llmFactory,
+    imageClientFactory: imageClientFactory,
+    imageStore: imageStore ?? InMemoryImageStore(),
     worldsDirProvider: () async => Directory('unused-in-tests'),
     keyValueStore: kv ?? InMemoryKeyValueStore(),
     scanDiskWorlds: false,
@@ -303,6 +307,66 @@ void main() {
 
     expect(find.textContaining('Review queue'), findsNothing);
     expect(find.byKey(const Key('wiki-wiki-the-gullet')), findsOneWidget);
+  });
+
+  testWidgets('wiki image: generate an illustration for an entry and show it', (
+    tester,
+  ) async {
+    final fixture = FixtureLlmClient(
+      turnOutputs: [
+        const TurnOutput(
+          narrative: '',
+          proposedDeltas: ProposedDeltas(clockAdvanceMinutes: 10),
+          wikiCandidates: [
+            WikiCandidate(
+              id: '',
+              title: 'The Gullet',
+              category: 'Places',
+              body: 'A drowned smuggling tunnel.',
+            ),
+          ],
+        ),
+      ],
+      narrations: ['You find the Gullet.'],
+    );
+    await tester.pumpWidget(
+      LivingWorldsApp(
+        services: testServices(
+          llmFactory: (_) => fixture,
+          imageClientFactory: (_) => FixtureImageClient(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await createWorldViaUi(tester);
+    await openHarborfall(tester);
+
+    // Queue + promote a candidate so there's an entry to illustrate.
+    await openAsh(tester);
+    await tester.enterText(
+      find.byKey(const Key('turn-input')),
+      'explore the caves',
+    );
+    await tester.tap(find.byKey(const Key('send-turn')));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Wiki'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (w) => w.key != null && '${w.key}'.contains('promote-cand'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Open the entry and generate an image.
+    await tester.tap(find.byKey(const Key('wiki-wiki-the-gullet')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('wiki-image')), findsNothing);
+    await tester.tap(find.byKey(const Key('generate-image')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('wiki-image')), findsOneWidget);
   });
 
   testWidgets('save/load: save to a slot and inspect it', (tester) async {
