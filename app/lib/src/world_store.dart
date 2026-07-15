@@ -2,6 +2,8 @@
 /// exposes actions the UI calls, notifies on every committed change.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:living_worlds_engine/living_worlds_engine.dart';
 
@@ -42,6 +44,12 @@ class WorldStore extends ChangeNotifier {
   final CostLog costLog = CostLog();
   bool busy = false;
   String? lastError;
+
+  /// Serializes every mutation so two operations never compute events against
+  /// the same projection snapshot and then collide on commit (the
+  /// "seq X is not Y" atomic-batch race). A turn spans two LLM calls, during
+  /// which a second turn or an image generation must not interleave.
+  Future<void> _writeLock = Future<void>.value();
 
   /// Seeding-workshop threads for this world (newest first), persisted
   /// per-world so the conversation survives navigation and restarts.
@@ -94,6 +102,11 @@ class WorldStore extends ChangeNotifier {
   }
 
   Future<T?> _guard<T>(Future<T> Function() action) async {
+    // Chain onto the previous mutation so writes run strictly one at a time.
+    final prev = _writeLock;
+    final done = Completer<void>();
+    _writeLock = done.future;
+    await prev;
     busy = true;
     lastError = null;
     notifyListeners();
@@ -105,6 +118,7 @@ class WorldStore extends ChangeNotifier {
     } finally {
       busy = false;
       await refresh();
+      done.complete();
     }
   }
 

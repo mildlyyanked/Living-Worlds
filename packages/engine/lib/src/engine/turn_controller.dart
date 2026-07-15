@@ -296,7 +296,9 @@ never florid or padded. If nothing material changed, say so briefly.''';
       final startedNarr = _clock();
       final narration = await llm.narrate(
         systemPrompt: narrativeSystemPrompt,
-        context: _liteContext(actor, projection, presentCharacterIds),
+        // Same full context the consequences pass saw, so the narrator knows
+        // the situation — not just the raw deltas (§ two-step turns).
+        context: assembled.text,
         action: userInput,
         changes: changes,
       );
@@ -396,33 +398,6 @@ never florid or padded. If nothing material changed, say so briefly.''';
   String _changesDigest(TurnResult r) {
     final notes = r.notifications.where((n) => n.trim().isNotEmpty).toList();
     return notes.join('; ');
-  }
-
-  /// Minimal grounding context for the narrator (kept tiny to hold cost down):
-  /// who the character is, who is present, and their most recent beat.
-  String _liteContext(
-    dynamic actor,
-    WorldProjection projection,
-    List<String> presentIds,
-  ) {
-    final b = StringBuffer()..writeln('CHARACTER: ${actor.name}');
-    final bio = actor.bio as String;
-    if (bio.isNotEmpty) {
-      b.writeln(bio.length <= 200 ? bio : '${bio.substring(0, 200)}…');
-    }
-    final present = [
-      for (final id in presentIds)
-        if (id != actor.id && projection.characters[id] != null)
-          projection.characters[id]!.name
-    ];
-    if (present.isNotEmpty) b.writeln('PRESENT: ${present.join(', ')}');
-    final turns = projection.turnsFor(actor.id as String);
-    if (turns.isNotEmpty) {
-      final last = turns.last.narrative;
-      b.writeln(
-          'PREVIOUSLY: ${last.length <= 200 ? last : '${last.substring(0, 200)}…'}');
-    }
-    return b.toString().trimRight();
   }
 
   String _narrativePrompt(dynamic actor, String action, String changes) =>

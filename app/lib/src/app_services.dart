@@ -36,7 +36,12 @@ class AppSettings extends ChangeNotifier {
   String openRouterKey = '';
   String supabaseUrl = '';
   String supabaseAnonKey = '';
+
+  /// Consequences pass / tool loop — keep this cheaper and instructional.
   String model = 'anthropic/claude-sonnet-4.5';
+
+  /// Narrate pass — pin a stronger model for better prose. Blank = use [model].
+  String narrativeModel = '';
   bool debugPanel = false;
   int contextBudgetTokens = 6000;
 
@@ -58,6 +63,7 @@ class AppSettings extends ChangeNotifier {
     supabaseUrl = j['supabaseUrl'] as String? ?? supabaseUrl;
     supabaseAnonKey = j['supabaseAnonKey'] as String? ?? supabaseAnonKey;
     model = j['model'] as String? ?? model;
+    narrativeModel = j['narrativeModel'] as String? ?? narrativeModel;
     debugPanel = j['debugPanel'] as bool? ?? debugPanel;
     contextBudgetTokens =
         (j['contextBudgetTokens'] as num?)?.round() ?? contextBudgetTokens;
@@ -85,6 +91,7 @@ class AppSettings extends ChangeNotifier {
       'supabaseUrl': supabaseUrl,
       'supabaseAnonKey': supabaseAnonKey,
       'model': model,
+      'narrativeModel': narrativeModel,
       'debugPanel': debugPanel,
       'contextBudgetTokens': contextBudgetTokens,
       'imageGenEnabled': imageGenEnabled,
@@ -157,11 +164,13 @@ class AppServices {
       baseUrl: 'https://openrouter.ai/api/v1',
       apiKey: s.openRouterKey,
       model: s.model,
+      narrativeModel: s.narrativeModel,
     ),
     LlmMode.supabaseProxy => OpenRouterLlmClient(
       baseUrl: '${s.supabaseUrl}/functions/v1/llm-proxy',
       apiKey: s.supabaseAnonKey,
       model: s.model,
+      narrativeModel: s.narrativeModel,
     ),
   };
 

@@ -20,6 +20,7 @@ class OpenRouterLlmClient implements LlmClient {
     required this.baseUrl,
     this.apiKey,
     this.model = 'anthropic/claude-sonnet-4.5',
+    this.narrativeModel = '',
     this.maxToolRounds = 6,
     this.maxRetries = 2,
     this.requestTimeout = const Duration(seconds: 90),
@@ -32,8 +33,14 @@ class OpenRouterLlmClient implements LlmClient {
   final String baseUrl;
   final String? apiKey;
 
-  /// Pinned tool-calling-reliable model (§14).
+  /// Model for the consequences pass / tool loop — can be cheaper and more
+  /// instructional (§ two-step turns, §14).
   final String model;
+
+  /// Model for the narrate pass. Blank = use [model]. Pin a stronger model
+  /// here for better prose while keeping consequences cheap.
+  final String narrativeModel;
+  String get _narrativeModel => narrativeModel.isEmpty ? model : narrativeModel;
   final int maxToolRounds;
 
   /// Transient network failures (dropped connections, timeouts) are retried
@@ -239,7 +246,7 @@ class OpenRouterLlmClient implements LlmClient {
       'Write the short account now.',
     ].join('\n\n');
     final resp = await _post('/chat/completions', {
-      'model': model,
+      'model': _narrativeModel,
       'messages': [
         {'role': 'system', 'content': systemPrompt},
         {'role': 'user', 'content': prompt},
@@ -258,7 +265,7 @@ class OpenRouterLlmClient implements LlmClient {
     return LlmNarration(
       text: content.trim(),
       usage: LlmUsage(
-        model: model,
+        model: _narrativeModel,
         promptTokens: (usage['prompt_tokens'] as num? ?? 0).toInt(),
         completionTokens: (usage['completion_tokens'] as num? ?? 0).toInt(),
         computedCostUsd: (usage['cost'] as num? ?? 0).toDouble(),

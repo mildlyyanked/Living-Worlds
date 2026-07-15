@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:living_worlds/main.dart';
 import 'package:living_worlds/src/app_services.dart';
 import 'package:living_worlds/src/persistence.dart';
+import 'package:living_worlds/src/world_store.dart';
 import 'package:living_worlds_engine/living_worlds_engine.dart';
 
 AppServices testServices({
@@ -465,6 +466,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('deferred'), findsOneWidget);
   });
+
+  test(
+    'concurrent turns are serialized — no atomic-batch seq collision',
+    () async {
+      // Two turns fired without awaiting the first would previously both compute
+      // events against the same projection and collide ("seq X is not Y").
+      final services = testServices(
+        llmFactory: (_) => FixtureLlmClient(
+          turnOutputs: [
+            const TurnOutput(
+              narrative: '',
+              proposedDeltas: ProposedDeltas(clockAdvanceMinutes: 10),
+            ),
+            const TurnOutput(
+              narrative: '',
+              proposedDeltas: ProposedDeltas(clockAdvanceMinutes: 10),
+            ),
+          ],
+          narrations: ['one', 'two'],
+        ),
+      );
+      final ref = await services.createWorld(
+        name: 'Race',
+        characterName: 'Ash',
+        inMemory: true,
+      );
+      final store = await WorldStore.open(services, ref);
+
+      // Fire both without awaiting the first.
+      final f1 = store.playTurn(actorId: 'ash', input: 'a');
+      final f2 = store.playTurn(actorId: 'ash', input: 'b');
+      await Future.wait([f1, f2]);
+
+      expect(store.lastError, isNull);
+      expect(store.projection!.turnsFor('ash'), hasLength(2));
+    },
+  );
 
   test('settings (incl. OpenRouter key) persist across app restarts', () async {
     final kv = InMemoryKeyValueStore();

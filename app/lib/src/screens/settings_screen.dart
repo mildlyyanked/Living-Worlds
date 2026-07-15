@@ -87,14 +87,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (v) => settings.update((s) => s.supabaseAnonKey = v),
               ),
             ],
-            if (settings.llmMode != LlmMode.offline)
+            if (settings.llmMode != LlmMode.offline) ...[
               TextFormField(
                 initialValue: settings.model,
                 decoration: const InputDecoration(
-                  labelText: 'Model (pin a tool-calling-reliable one, §14)',
+                  labelText: 'Consequences model (cheaper, instructional)',
+                  helperText:
+                      'Resolves the mechanical deltas. Keep it inexpensive.',
                 ),
                 onChanged: (v) => settings.update((s) => s.model = v),
               ),
+              TextFormField(
+                key: const Key('narrative-model'),
+                initialValue: settings.narrativeModel,
+                decoration: const InputDecoration(
+                  labelText: 'Narrative model (better prose; blank = same)',
+                  helperText:
+                      'Writes the story from the full context + resolved '
+                      'changes. Pin a stronger model here.',
+                ),
+                onChanged: (v) => settings.update((s) => s.narrativeModel = v),
+              ),
+            ],
             const Divider(height: 32),
             SwitchListTile(
               key: const Key('debug-toggle'),
