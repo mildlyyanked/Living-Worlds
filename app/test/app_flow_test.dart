@@ -468,10 +468,11 @@ void main() {
   });
 
   test(
-    'concurrent turns are serialized — no atomic-batch seq collision',
+    'concurrent turns across TWO stores on one world do not collide',
     () async {
-      // Two turns fired without awaiting the first would previously both compute
-      // events against the same projection and collide ("seq X is not Y").
+      // Reopening a world makes a second WorldStore sharing the same repo. A
+      // per-store lock wouldn't see the other; the per-world lock in
+      // AppServices must serialize both, or they collide ("seq X is not Y").
       final services = testServices(
         llmFactory: (_) => FixtureLlmClient(
           turnOutputs: [
@@ -492,15 +493,18 @@ void main() {
         characterName: 'Ash',
         inMemory: true,
       );
-      final store = await WorldStore.open(services, ref);
+      final storeA = await WorldStore.open(services, ref);
+      final storeB = await WorldStore.open(services, ref); // shares the repo
 
-      // Fire both without awaiting the first.
-      final f1 = store.playTurn(actorId: 'ash', input: 'a');
-      final f2 = store.playTurn(actorId: 'ash', input: 'b');
+      // Fire a turn on each store without awaiting the first.
+      final f1 = storeA.playTurn(actorId: 'ash', input: 'a');
+      final f2 = storeB.playTurn(actorId: 'ash', input: 'b');
       await Future.wait([f1, f2]);
 
-      expect(store.lastError, isNull);
-      expect(store.projection!.turnsFor('ash'), hasLength(2));
+      expect(storeA.lastError, isNull);
+      expect(storeB.lastError, isNull);
+      final p = await storeA.repo.projection();
+      expect(p.turnsFor('ash'), hasLength(2));
     },
   );
 

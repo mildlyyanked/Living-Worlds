@@ -3,6 +3,7 @@
 /// FixtureLlmClient — same philosophy as the engine (§11).
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -144,6 +145,34 @@ class AppServices {
   final Future<Directory> Function() _worldsDir;
 
   final Map<String, WorldRepository> _open = {};
+
+  /// Per-world write lock. A world's repository is shared across every
+  /// WorldStore opened on it, so serialization must live here (not on a
+  /// store) — otherwise two stores' locks don't see each other and their
+  /// turns collide on commit ("seq X is not Y").
+  final Map<String, Future<void>> _worldLocks = {};
+
+  /// Run [action] with exclusive access to [worldId]'s event log, so no two
+  /// mutations ever compute events against the same projection snapshot and
+  /// then race to append.
+  Future<T> serializeWorld<T>(
+    String worldId,
+    Future<T> Function() action,
+  ) async {
+    final prev = _worldLocks[worldId] ?? Future<void>.value();
+    final done = Completer<void>();
+    _worldLocks[worldId] = done.future;
+    await prev;
+    try {
+      return await action();
+    } finally {
+      done.complete();
+      // Drop the entry if we're the tail, to avoid unbounded growth.
+      if (identical(_worldLocks[worldId], done.future)) {
+        _worldLocks.remove(worldId);
+      }
+    }
+  }
 
   /// One-time startup: load persisted settings.
   Future<void> init() => settings.load();
